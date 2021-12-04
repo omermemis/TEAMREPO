@@ -43,16 +43,23 @@ classdef HlcIdentification < cmmn.InterfaceHlc
 
             % Compute control action
             % ----------------------
-            if(obj.t_exp > 4)
+            if (obj.t_exp > 18)
+                u = 1;  
+            elseif (obj.t_exp > 14)
                 u = 2;  
+            elseif(obj.t_exp > 10)
+                u = 1;
+            elseif(obj.t_exp > 6)
+                u = 2;
             elseif(obj.t_exp > 2)
                 u = 1;
             else
                 u = 0;
             end
             
-            obj.input(obj.counter) = u;
-            obj.output(obj.counter) = y(2);
+            obj.input(obj.counter,1) = u;
+            obj.output(obj.counter,1) = y(1);
+            obj.output(obj.counter,2) = y(2);
             obj.t(obj.counter) = obj.t_exp;
             % Apply control action
             % --------------------
@@ -62,16 +69,19 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         function on_stop(obj)
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
-            data = iddata(obj.output', obj.input', obj.Ts);
+            data = iddata(obj.output, obj.input, obj.Ts);
+            data.InputName  = {'VelocityIn'};
+            data.OutputName = {'DistanceOut';'VelocityOut'};
             save('data.mat','data')
-            sys = ssest(data,2);
+            order = (1:1:10); 
+            sys = ssest(data, order);    
+            save('sys.mat','sys')
+            save('obj.mat','obj')
             figure(1)
             subplot(2,1,1)
             plot(data)
             subplot(2,1,2)
-            lsim(sys, obj.input, obj.t)
-            figure(3)
-            step(sys)
+            compare(data, sys)
         end
 
     end
