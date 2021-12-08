@@ -31,6 +31,26 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         function on_first_timestep(obj, vehicle_state_list)
             on_first_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
             obj.counter = 0;
+            MODEL = cmmn.longitudinal_model(obj.Ts);
+            HP = 10;
+            HU = 3;
+            UMIN = 0;
+            UMAX = 1.5;
+            DUMIN = -1;
+            DUMAX = 0.5;
+            YMIN = zeros(2*HP,1);
+            s0 = 10;
+            YMAX = [s0, UMAX];
+            for i =1:HP-1
+                YMAX(2*i+1) = YMAX(2*i-1) + obj.t_exp*UMAX;
+                YMAX(2*i+2) = UMAX;
+            end
+            YMAX = YMAX';
+            Q = [1 0; 0 0.2];
+            R = 0;
+            Q_KALMAN = 1;
+            R_KALMAN = [1 0; 0 1];
+            mpcObj = cmmn.ModelPredictiveControl(MODEL,HP,HU,UMIN,UMAX,DUMIN,DUMAX,YMIN,YMAX,Q,R,Q_KALMAN,R_KALMAN);
         end
 
         function on_each_timestep(obj, vehicle_state_list)
@@ -43,19 +63,22 @@ classdef HlcIdentification < cmmn.InterfaceHlc
 
             % Compute control action
             % ----------------------
-            if (obj.t_exp > 18)
-                u = 1;  
-            elseif (obj.t_exp > 14)
-                u = 1.5;  
-            elseif(obj.t_exp > 10)
-                u = 1;
-            elseif(obj.t_exp > 6)
-                u = 1.5;
-            elseif(obj.t_exp > 2)
-                u = 1;
-            else
-                u = 0;
-            end
+
+%             if (obj.t_exp > 18)
+%                 u = 1;  
+%             elseif (obj.t_exp > 14)
+%                 u = 1.5;  
+%             elseif(obj.t_exp > 10)
+%                 u = 1;
+%             elseif(obj.t_exp > 6)
+%                 u = 1.5;
+%             elseif(obj.t_exp > 2)
+%                 u = 1;
+%             else
+%                 u = 0;
+%             end
+
+
             
             obj.input(obj.counter,1) = u;
             obj.output(obj.counter,1) = y(1);
