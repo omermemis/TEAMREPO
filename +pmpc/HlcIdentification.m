@@ -46,11 +46,11 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             if (obj.t_exp > 18)
                 u = 1;  
             elseif (obj.t_exp > 14)
-                u = 2;  
+                u = 1.5;  
             elseif(obj.t_exp > 10)
                 u = 1;
             elseif(obj.t_exp > 6)
-                u = 2;
+                u = 1.5;
             elseif(obj.t_exp > 2)
                 u = 1;
             else
@@ -76,7 +76,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             order = (1:1:10); 
             sys = ssest(data, order);    
             save('sys.mat','sys')
-            save('obj.mat','obj')
+            save('data.mat','data')
             figure(1)
             subplot(2,1,1)
             plot(data)

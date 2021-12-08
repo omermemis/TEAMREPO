@@ -51,7 +51,7 @@ classdef InterfaceHlc < handle
             obj.t_start_nanos = vehicle_state_list.t_now;
             % Middleware period for valid_after stamp
             obj.dt_period_nanos = uint64(vehicle_state_list.period_ms*1e6);
-            dt_max_computation_communication = uint64(300e6 + 100e6); % multiples of dt_period
+            dt_max_computation_communication = uint64(100e6); % multiples of dt_period
             obj.dt_valid_after_nanos = max(obj.dt_period_nanos,dt_max_computation_communication);
         end
 
