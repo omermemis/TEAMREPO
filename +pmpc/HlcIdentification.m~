@@ -118,7 +118,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
               ylabel('distance')
               subplot(3,1,2)
               plot(obj.t,obj.v_ref,obj.t,obj.output(:,2),obj.t,obj.input)
-              legend('reference speed','real speed','input speed')
+              legend('reference speed','real speed',')
               ylabel('speed')
               subplot(3,1,3)
               plot(obj.t(2:end),diff(obj.output(:,2)))
