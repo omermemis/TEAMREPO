@@ -16,6 +16,9 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         s0
         DUMIN
         DUMAX
+        v_max
+        v_min
+        slack_var
     end
 
     methods
@@ -34,7 +37,8 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.t = [];
             obj.HP = 10;
             obj.HU = 3;
-            
+            obj.v_max = 1.5;
+            obj.v_min = -1,5;
         end
         
         function on_first_timestep(obj, vehicle_state_list)
@@ -42,6 +46,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.counter = 0;
             obj.Ts = 0.1;
             obj.t_exp = 0.1;
+%             MODEL = cmmn.longitudinal_model(obj.Ts);
             MODEL = cmmn.longitudinal_model(obj.Ts);
 
             UMIN = 0;
@@ -50,6 +55,14 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.DUMAX = 0.5;
             YMIN = -inf*ones(2*obj.HP,1);
             YMAX = inf*ones(2*obj.HP,1);
+%             for i=1:obj.HP
+%                 YMIN(2*i-1) = -inf;
+%                 YMIN(2*i) = obj.v_min;
+%             end
+            for i=1:obj.HP
+                YMAX(2*i-1) = inf;
+                YMAX(2*i) = obj.v_max;
+            end
             Q = [1 0; 0 0];
             R = 0;
             Q_KALMAN = 1;
@@ -79,7 +92,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
 
                 ref(2*i) = v_ref_;
             end
-            [u,y] = obj.mpcObj.step(ym,ref);
+            [u,y,obj.slack_var(obj.counter)] = obj.mpcObj.step(ym,ref);
             % Compute control action
             % ----------------------
 
@@ -112,15 +125,15 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
               figure(1)
-              subplot(3,1,1)
+              subplot(4,1,1)
               plot(obj.t,obj.s_ref,obj.t,obj.output(:,1));
               legend('reference distance','real distance')
               ylabel('distance')
-              subplot(3,1,2)
-              plot(obj.t,obj.v_ref,obj.t,obj.output(:,2),obj.t,obj.input)
-              legend('reference speed','real speed',')
+              subplot(4,1,2)
+              plot(obj.t,obj.v_ref,obj.t,obj.output(:,2),obj.t,obj.input,obj.t,obj.v_max*ones(1,size(obj.t,2)))
+              legend('reference speed','real speed','input speed','max speed constraint')
               ylabel('speed')
-              subplot(3,1,3)
+              subplot(4,1,3)
               plot(obj.t(2:end),diff(obj.output(:,2)))
               hold on
               plot(obj.t(2:end),obj.DUMIN*ones(1,size(obj.t,2)-1))
@@ -130,6 +143,10 @@ classdef HlcIdentification < cmmn.InterfaceHlc
               xlabel('t [s]')
               ylabel('speed')
               ylim([obj.DUMIN-0.2 obj.DUMAX+0.2])
+              subplot(4,1,4)
+              plot(obj.t,obj.slack_var)
+              xlabel('t [s]')
+              ylabel('slack variable')
 %             data = iddata(obj.output, obj.input, obj.Ts);
 %             data.InputName  = {'VelocityIn'};
 %             data.OutputName = {'DistanceOut';'VelocityOut'};

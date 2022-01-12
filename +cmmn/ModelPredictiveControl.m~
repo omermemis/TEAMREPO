@@ -45,7 +45,7 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
         hp
         hu
         model
-        
+        slack_var
     end
     
     properties (Access=private)
@@ -274,7 +274,6 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             d_u_k = Delta_u_sol(1:obj.nu);
             % compute future states and outputs
             u = obj.u_k_minus_one + d_u_k;
-            slack_var = Delta_u_sol(end);
             Delta_u_sol(end) = [];
             y = obj.psi_y*x_k + obj.gamma_y*obj.u_k_minus_one + obj.theta_y*Delta_u_sol;
             

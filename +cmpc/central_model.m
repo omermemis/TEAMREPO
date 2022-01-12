@@ -1,6 +1,6 @@
 function [ model ] = central_model(Ts, n)
 %LONGITUDINAL_MODEL Returns state space model for one vehicle
-
+%n: number of vehicles
 longitudinal_model = cmmn.longitudinal_model(Ts);
 A_ = longitudinal_model.A;
 B_ = longitudinal_model.B;
