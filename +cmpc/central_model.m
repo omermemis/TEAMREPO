@@ -14,11 +14,17 @@ C =  zeros(n,n*order);
 for i=1:n
     A((i-1)*order+1:i*order,(i-1)*order+1:i*order) = A_;
     B((i-1)*order+1:i*order,i) = B_;
-    if i==1
+%     if i==1
+%         C(i,(i-1)*order+1:i*order) = C_(2,:);
+%     else
+%         C(i,(i-2)*order+1:(i-1)*order) = C_(1,:);
+%         C(i,(i-1)*order+1:i*order) = -C_(1,:);
+%     end
+    if i==n
         C(i,(i-1)*order+1:i*order) = C_(2,:);
     else
-        C(i,(i-2)*order+1:(i-1)*order) = C_(1,:);
         C(i,(i-1)*order+1:i*order) = -C_(1,:);
+        C(i,i*order+1:(i+1)*order) = C_(1,:); % output y = [d21; d32...; dn(n-1); vn], where dn(n-1)=distance(n)-distance(n-1)
     end
 end
 D = 0;
