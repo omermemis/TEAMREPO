@@ -19,6 +19,9 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         v_max
         v_min
         slack_var
+        delta_u
+        s_max
+        val_objective_fcn
     end
 
     methods
@@ -37,8 +40,12 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.t = [];
             obj.HP = 10;
             obj.HU = 3;
-            obj.v_max = 1.5;
-            obj.v_min = -1,5;
+            obj.v_max = 8;
+            obj.v_min = -2;
+            obj.s_max = 5;
+            obj.slack_var = [];
+            obj.delta_u = [];
+            obj.val_objective_fcn = [];
         end
         
         function on_first_timestep(obj, vehicle_state_list)
@@ -48,19 +55,20 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.t_exp = 0.1;
 %             MODEL = cmmn.longitudinal_model(obj.Ts);
             MODEL = cmmn.longitudinal_model(obj.Ts);
-
-            UMIN = 0;
-            UMAX = 1.5;
-            obj.DUMIN = -1;
-            obj.DUMAX = 0.5;
-            YMIN = -inf*ones(2*obj.HP,1);
-            YMAX = inf*ones(2*obj.HP,1);
-%             for i=1:obj.HP
-%                 YMIN(2*i-1) = -inf;
-%                 YMIN(2*i) = obj.v_min;
-%             end
+            y1 = obj.mt.measure_longitudinal(vehicle_state_list);
+            obj.s0 = y1(1);
+            UMIN = 0; % min. input constraint
+            UMAX = inf; % max. input constraint
+            obj.DUMIN = -1*20*obj.Ts; % max. acceleration constraint
+            obj.DUMAX = 0.5*20*obj.Ts; % min. acceleration constraint
+            YMIN = -inf*ones(2*obj.HP,1); % min. output constraint
+            YMAX = inf*ones(2*obj.HP,1); % max. output constraint
             for i=1:obj.HP
-                YMAX(2*i-1) = inf;
+                YMIN(2*i-1) = -inf;
+                YMIN(2*i) = obj.v_min;
+            end
+            for i=1:obj.HP
+                YMAX(2*i-1) = obj.s_max+obj.s0;
                 YMAX(2*i) = obj.v_max;
             end
             Q = [1 0; 0 0];
@@ -70,8 +78,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.mpcObj = cmmn.ModelPredictiveControl(MODEL,obj.HP,obj.HU,UMIN,UMAX,obj.DUMIN,obj.DUMAX,YMIN,YMAX,Q,R,Q_KALMAN,R_KALMAN);
             x_init = [0;0;0;0];
             obj.mpcObj.observer.x_k_minus_one = x_init;
-            y1 = obj.mt.measure_longitudinal(vehicle_state_list);
-            obj.s0 = y1(1);
+
         end
 
         function on_each_timestep(obj, vehicle_state_list)
@@ -85,14 +92,14 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             s_ref_func = @(t) 1.1*t + 0.5*sin(t) + 0;
             v_ref_ = 1;
             ref = zeros(2*obj.HP,1);
-            obj.s_ref(obj.counter) = s_ref_func(obj.t_exp) + obj.s0;
-            obj.v_ref(obj.counter) = v_ref_;
+            obj.s_ref(obj.counter,1) = s_ref_func(obj.t_exp) + obj.s0;
+            obj.v_ref(obj.counter,1) = v_ref_;
             for i=1:obj.HP
                 ref(2*i-1) = s_ref_func(obj.t_exp+i*obj.Ts) + obj.s0;
-
                 ref(2*i) = v_ref_;
             end
-            [u,y,obj.slack_var(obj.counter)] = obj.mpcObj.step(ym,ref);
+            weight_slack_var = 20;
+            [u,y,obj.slack_var(obj.counter),obj.delta_u(obj.counter,1),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
             % Compute control action
             % ----------------------
 
@@ -115,7 +122,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.input(obj.counter,1) = u;
             obj.output(obj.counter,1) = ym(1);
             obj.output(obj.counter,2) = ym(2);
-            obj.t(obj.counter) = obj.t_exp;
+            obj.t(obj.counter,1) = obj.t_exp;
             % Apply control action
             % --------------------
             obj.cpmLab.apply_path_tracking(u, obj.path_points, obj.dt_valid_after_nanos)
@@ -125,28 +132,35 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
               figure(1)
-              subplot(4,1,1)
-              plot(obj.t,obj.s_ref,obj.t,obj.output(:,1));
-              legend('reference distance','real distance')
-              ylabel('distance')
-              subplot(4,1,2)
-              plot(obj.t,obj.v_ref,obj.t,obj.output(:,2),obj.t,obj.input,obj.t,obj.v_max*ones(1,size(obj.t,2)))
-              legend('reference speed','real speed','input speed','max speed constraint')
-              ylabel('speed')
-              subplot(4,1,3)
-              plot(obj.t(2:end),diff(obj.output(:,2)))
-              hold on
-              plot(obj.t(2:end),obj.DUMIN*ones(1,size(obj.t,2)-1))
-              plot(obj.t(2:end),obj.DUMAX*ones(1,size(obj.t,2)-1))
-              hold off
-              legend('real acceleration','minimal acceleration','maximal acceleration')
+              subplot(5,1,1)
+              plot(obj.t, [obj.s_ref, obj.output(:,1), (obj.s_max+obj.s0)*ones(obj.counter,1)]);
+              grid on
+              legend('reference distance','real distance','max distance constraint')
+              ylabel('distance [m]')
+              subplot(5,1,2)
+              plot(obj.t, [obj.input, obj.output(:,2), obj.v_max*ones(obj.counter,1), obj.v_min*ones(obj.counter,1)]);
+              grid on
+              legend('input speed','real speed','max output speed constraint','min output speed constraint')
+              ylabel('speed [m/s]')
+              ylim([obj.v_min-0.2, obj.v_max+0.2])
+              subplot(5,1,3)
+              plot(obj.t(2:end), [obj.delta_u(2:end)/obj.Ts, diff(obj.output(:,2))/obj.Ts,...
+                  obj.DUMAX/obj.Ts*ones(obj.counter-1,1), obj.DUMIN/obj.Ts*ones(obj.counter-1,1)])
+              grid on
+              legend('input acceleration','real acceleration','max acceleration constraint','min acceleration constraint')
               xlabel('t [s]')
-              ylabel('speed')
-              ylim([obj.DUMIN-0.2 obj.DUMAX+0.2])
-              subplot(4,1,4)
-              plot(obj.t,obj.slack_var)
+              ylabel('acceleration [m/s^2]')
+              ylim([obj.DUMIN/obj.Ts-0.2; obj.DUMAX/obj.Ts+0.2])
+              subplot(5,1,4)
+              plot(obj.t, obj.slack_var)
+              grid on
               xlabel('t [s]')
               ylabel('slack variable')
+              subplot(5,1,5)
+              plot(obj.t, obj.val_objective_fcn)
+              grid on
+              xlabel('t [s]')
+              ylabel('objective function') 
 %             data = iddata(obj.output, obj.input, obj.Ts);
 %             data.InputName  = {'VelocityIn'};
 %             data.OutputName = {'DistanceOut';'VelocityOut'};

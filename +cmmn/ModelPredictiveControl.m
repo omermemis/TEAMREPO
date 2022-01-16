@@ -146,7 +146,7 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
         end
 
 
-        function [u,y,slack_var] = step(obj,ym,ref,ymin,ymax)
+        function [u,y,slack_var,d_u_k,fval] = step(obj,ym,ref,weight_slack_var,ymin,ymax)
             %STEP solves an optimization problem to generate control input u
             % U: control input for the next timestep. dimensions=(nu,1)
             % Y: output prediction as a vector of stacked vectors of y(k) for
@@ -180,9 +180,9 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             y_free = obj.psi_y*x_k + obj.gamma_y*obj.u_k_minus_one;
             assert(size(ref,2)==1);
             assert(size(ref,1)==obj.hp*obj.ny);
-            f = 2 * obj.theta_y' * obj.Q * (y_free - ref);
-            h = 2 * (obj.theta_y' * obj.Q * obj.theta_y + obj.R);
-            
+            f = 2 * obj.theta_y' * obj.Q * (y_free - ref); % see eq. (4.34) in B. Alrifaee's PhD thesis
+            h = 2 * (obj.theta_y' * obj.Q * obj.theta_y + obj.R); % see eq. (4.34) in B. Alrifaee's PhD thesis; but why do we need 2*?
+            r0 = (y_free - ref)'*obj.Q*(y_free - ref);
             % u constraints
             Aineq_umax = kron(tril(ones(obj.hu,obj.hu)),eye(obj.nu));
             Aineq_umin = -Aineq_umax;
@@ -239,22 +239,22 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
                 Aineq_y...
             ];
             bineq = [...
-                bineq_u;...
-                bineq_y...
+                bineq_u;... % for input constrint
+                bineq_y... % for output constraint
             ];
             
             h = blkdiag(h,0);
-            f = [f;1e3];
-            % new column [0;0;...0;-1;-1;...-1] to be added to Aineq
-            new_col = [zeros(size(Aineq_u,1),1);
-                -1*ones(size(Aineq_y,1),1)];
+            f = [f;weight_slack_var];
+            new_col = [0*ones(size(Aineq_u,1),1);
+                -1*ones(size(Aineq_y,1),1)];  % new column [0;0;...0;-1;-1;...-1] to be added to Aineq
             Aineq = [Aineq new_col];
-            lb = [lb;0];
-            ub = [ub;+inf];
+            lb = [lb;0]; % set lower boundary of slack variable to zero
+            ub = [ub;+inf]; % set upper boundary of slack variable to infinite
 
             % solve program
             options = optimset('Display', 'off', 'LargeScale', 'off');
-            Delta_u_sol = quadprog(h,f,Aineq,bineq,[],[],lb,ub,[],options);
+            [Delta_u_sol, fval] = quadprog(h,f,Aineq,bineq,[],[],lb,ub,[],options); % fval is the value of the objective function
+            fval = fval + r0;
             % Delta_u_sol is
             % [u_1(k),
             %  u_2(k),
