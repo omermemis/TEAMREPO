@@ -181,7 +181,7 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             assert(size(ref,2)==1);
             assert(size(ref,1)==obj.hp*obj.ny);
             f = 2 * obj.theta_y' * obj.Q * (y_free - ref); % see eq. (4.34) in B. Alrifaee's PhD thesis
-            h = 2 * (obj.theta_y' * obj.Q * obj.theta_y + obj.R); % see eq. (4.34) in B. Alrifaee's PhD thesis; but why do we need 2*?
+            h = 2 * (obj.theta_y' * obj.Q * obj.theta_y + obj.R); % see eq. (4.34) in B. Alrifaee's PhD thesis
             r0 = (y_free - ref)'*obj.Q*(y_free - ref);
             % u constraints
             Aineq_umax = kron(tril(ones(obj.hu,obj.hu)),eye(obj.nu));
