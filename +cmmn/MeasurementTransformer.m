@@ -47,8 +47,6 @@ classdef MeasurementTransformer < handle
             cntr_veh = 1;
             for veh_id = obj.vehicle_ids
                 iVeh = find([vehicle_state_list.state_list.vehicle_id]==veh_id);
-                % TODO read position from vehicle_state_list
-                % position = [0,0];
                 position = [vehicle_state_list.state_list(iVeh).pose.x, vehicle_state_list.state_list(iVeh).pose.y];
                 s_new = cmmn.compute_distance_on_path(position, obj.path_points);
                 ds = cmmn.compute_rel_distance_on_path(obj.path_points,obj.s_on_loop(cntr_veh), s_new);
@@ -61,11 +59,11 @@ classdef MeasurementTransformer < handle
                 cntr_veh = cntr_veh + 1;
             end
             % y = [d21; d32...; dn(n-1); vn], where dn(n-1)=distance(n)-distance(n-1)
-            for i=length(nVeh)
-                if i==length(nVeh)
-                    y(i) = y_(2*i);
+            for i=1:nVeh
+                if i==nVeh
+                    y(i,1) = y_(2*i);
                 else
-                    y(i) = y_(2*i+1)-y_(2*i-1);
+                    y(i,1) = y_(2*i+1)-y_(2*i-1);
                 end
             end
                 

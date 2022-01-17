@@ -182,6 +182,7 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             assert(size(ref,1)==obj.hp*obj.ny);
             f = 2 * obj.theta_y' * obj.Q * (y_free - ref);
             h = 2 * (obj.theta_y' * obj.Q * obj.theta_y + obj.R);
+            h = round(h,6);
             r0 = (y_free - ref)'*obj.Q*(y_free - ref);
             % u constraints
             Aineq_umax = kron(tril(ones(obj.hu,obj.hu)),eye(obj.nu));
@@ -244,8 +245,8 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             ];
             
             h = blkdiag(h,0);
-            f = [f;weight_slack_var];
-            new_col = [zeros(size(Aineq_u,1),1);
+            f = [f; weight_slack_var];
+            new_col = [0*ones(size(Aineq_u,1),1);
                 -1*ones(size(Aineq_y,1),1)];  % new column [0;0;...0;-1;-1;...-1] to be added to Aineq
             Aineq = [Aineq new_col];
             lb = [lb;0];
