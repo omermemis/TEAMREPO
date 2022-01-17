@@ -114,7 +114,10 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             ref(1:end-1) = obj.d_ref; % [m]
             ref(end) = 1.0; % [m/s]
             weight_slack_var = 1e5;
-            [u,y,obj.slack_var(obj.counter,1:2*obj.HP*obj.ny),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
+            % use only one slack variable
+            [u,y,obj.slack_var(obj.counter,1),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
+%             use many slack variables
+%             [u,y,obj.slack_var(obj.counter,1:2*obj.HP*obj.ny),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
             % Compute control action
             % ----------------------
 
@@ -166,29 +169,17 @@ classdef HlcIdentification < cmmn.InterfaceHlc
 %               xlabel('t [s]')
 %               ylabel('acceleration [m/s^2]')
 %               ylim([obj.DUMIN/obj.Ts-0.2; obj.DUMAX/obj.Ts+0.2])
-%               subplot(5,1,4)
-%               plot(obj.t, obj.slack_var)
-%               grid on
-%               xlabel('t [s]')
-%               ylabel('slack variable')
-%               subplot(5,1,5)
-%               plot(obj.t, obj.val_objective_fcn)
-%               grid on
-%               xlabel('t [s]')
-%               ylabel('objective function') 
-%             data = iddata(obj.output, obj.input, obj.Ts);
-%             data.InputName  = {'VelocityIn'};
-%             data.OutputName = {'DistanceOut';'VelocityOut'};
-%             save('data.mat','data')
-%             order = (1:1:10); 
-%             sys = ssest(data, order);    
-%             save('sys.mat','sys')
-%             save('data.mat','data')
-%             figure(1)
-%             subplot(2,1,1)
-%             plot(data)
-%             subplot(2,1,2)
-%             compare(data, sys)
+              subplot(5,1,4)
+              plot(obj.t, obj.slack_var)
+              grid on
+              xlabel('t [s]')
+              ylabel('slack variable')
+              subplot(5,1,5)
+              plot(obj.t, obj.val_objective_fcn)
+              grid on
+              xlabel('t [s]')
+              ylabel('objective function') 
+
                 
         end
 

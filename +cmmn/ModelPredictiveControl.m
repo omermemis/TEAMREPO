@@ -242,19 +242,28 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
                 bineq_u;...
                 bineq_y...
             ];
-            
-            h = blkdiag(h, zeros(size(Aineq_y,1),size(Aineq_y,1)));
-            f = [f; weight_slack_var*ones(size(Aineq_y,1),1)];
-            new_cols = [0*ones(size(Aineq_u,1),size(Aineq_y,1));
-                -1*eye(size(Aineq_y,1),size(Aineq_y,1))]; 
+            % use only one slack variable
+            h = blkdiag(h, 0);
+            f = [f; weight_slack_var];
+            new_cols = [0*ones(size(Aineq_u,1),1);
+                -1*eye(size(Aineq_y,1),1)]; 
             Aineq = [Aineq new_cols];
-            lb = [lb;0*ones(size(Aineq_y,1),1)];
-            ub = [ub;+inf*ones(size(Aineq_y,1),1)];
+            lb = [lb;0];
+            ub = [ub;+inf];
+            
+            % use many slack variables
+%             h = blkdiag(h, zeros(size(Aineq_y,1),size(Aineq_y,1)));
+%             f = [f; weight_slack_var*ones(size(Aineq_y,1),1)];
+%             new_cols = [0*ones(size(Aineq_u,1),size(Aineq_y,1));
+%                 -1*eye(size(Aineq_y,1),size(Aineq_y,1))]; 
+%             Aineq = [Aineq new_cols];
+%             lb = [lb;0*ones(size(Aineq_y,1),1)];
+%             ub = [ub;+inf*ones(size(Aineq_y,1),1)];
 
             % solve program
             options = optimset('Display', 'off', 'LargeScale', 'off');
             [Delta_u_sol, fval] = quadprog(h,f,Aineq,bineq,[],[],lb,ub,[],options); % fval is the value of the objective function
-            fval = fval + r0;
+%             fval = fval + r0;
             % Delta_u_sol is
             % [u_1(k),
             %  u_2(k),
@@ -274,8 +283,10 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             d_u_k = Delta_u_sol(1:obj.nu);
             % compute future states and outputs
             u = obj.u_k_minus_one + d_u_k;
-            slack_var = Delta_u_sol(end-size(Aineq_y,1)+1:end)';
-            Delta_u_sol(end-size(Aineq_y,1)+1:end) = [];
+            slack_var = Delta_u_sol(end);
+            Delta_u_sol(end) = [];
+%             slack_var = Delta_u_sol(end-size(Aineq_y,1)+1:end)';
+%             Delta_u_sol(end-size(Aineq_y,1)+1:end) = [];
             y = obj.psi_y*x_k + obj.gamma_y*obj.u_k_minus_one + obj.theta_y*Delta_u_sol;
             
             % save last control input
