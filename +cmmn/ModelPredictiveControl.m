@@ -182,7 +182,6 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             assert(size(ref,1)==obj.hp*obj.ny);
             f = 2 * obj.theta_y' * obj.Q * (y_free - ref);
             h = 2 * (obj.theta_y' * obj.Q * obj.theta_y + obj.R);
-            h = round(h,6);
             r0 = (y_free - ref)'*obj.Q*(y_free - ref);
             % u constraints
             Aineq_umax = kron(tril(ones(obj.hu,obj.hu)),eye(obj.nu));
@@ -244,13 +243,13 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
                 bineq_y...
             ];
             
-            h = blkdiag(h,0);
-            f = [f; weight_slack_var];
-            new_col = [0*ones(size(Aineq_u,1),1);
-                -1*ones(size(Aineq_y,1),1)];  % new column [0;0;...0;-1;-1;...-1] to be added to Aineq
-            Aineq = [Aineq new_col];
-            lb = [lb;0];
-            ub = [ub;+inf];
+            h = blkdiag(h, zeros(size(Aineq_y,1),size(Aineq_y,1)));
+            f = [f; weight_slack_var*ones(size(Aineq_y,1),1)];
+            new_cols = [0*ones(size(Aineq_u,1),size(Aineq_y,1));
+                -1*eye(size(Aineq_y,1),size(Aineq_y,1))]; 
+            Aineq = [Aineq new_cols];
+            lb = [lb;0*ones(size(Aineq_y,1),1)];
+            ub = [ub;+inf*ones(size(Aineq_y,1),1)];
 
             % solve program
             options = optimset('Display', 'off', 'LargeScale', 'off');
@@ -275,8 +274,8 @@ classdef ModelPredictiveControl < cmmn.InterfaceController
             d_u_k = Delta_u_sol(1:obj.nu);
             % compute future states and outputs
             u = obj.u_k_minus_one + d_u_k;
-            slack_var = Delta_u_sol(end);
-            Delta_u_sol(end) = [];
+            slack_var = Delta_u_sol(end-size(Aineq_y,1)+1:end)';
+            Delta_u_sol(end-size(Aineq_y,1)+1:end) = [];
             y = obj.psi_y*x_k + obj.gamma_y*obj.u_k_minus_one + obj.theta_y*Delta_u_sol;
             
             % save last control input

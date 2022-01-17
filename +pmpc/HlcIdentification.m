@@ -49,13 +49,13 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.t = [];
             obj.HP = 10;
             obj.HU = 3;
-            obj.v_min = 0.8;
-            obj.v_max = 1.2;
+            obj.v_min = -inf;
+            obj.v_max = inf;
             obj.d_ref = 0.5;
-            obj.a_min = -1;
-            obj.a_max = 0.5;
-            obj.d_min = 0.4;
-            obj.d_max = 0.6;
+            obj.a_min = -inf;
+            obj.a_max = inf;
+            obj.d_min = -inf;
+            obj.d_max = inf;
         end
         
         function on_first_timestep(obj, vehicle_state_list)
@@ -80,8 +80,8 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             YMAX(1:end-1) = obj.d_max;
             YMAX(end) = obj.v_max;
             YMAX = repmat(YMAX,obj.HP,1);
-%             Q = eye(obj.ny); % for system output
-            Q = diag([1,2,3,4,5]);
+            Q = eye(obj.ny); % for system output
+%             Q = diag([1,2,3,4,5]);
 %             Q(5,5) = 0.1; 
             R = zeros(obj.nu); % for input changes du
             Q_KALMAN = eye(obj.nx); % handle process noise
@@ -114,7 +114,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             ref(1:end-1) = obj.d_ref; % [m]
             ref(end) = 1.0; % [m/s]
             weight_slack_var = 1e5;
-            [u,y,obj.slack_var(obj.counter),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
+            [u,y,obj.slack_var(obj.counter,1:2*obj.HP*obj.ny),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
             % Compute control action
             % ----------------------
 
