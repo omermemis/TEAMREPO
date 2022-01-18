@@ -6,7 +6,6 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         path_points
         input
         s_ref
-        v_ref
         output
         counter
         t
@@ -27,15 +26,18 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         nu % input length
         nx % number of states
         d_ref % relative distance reference
+        v_ref % reference speed
         a_min % min accelelation constraint
         a_max % max accelelation constraint
         d_min % min relative distance constraint
         d_max % max relative distance constraint
+        vehicle_ids
     end
 
     methods
         function obj = HlcIdentification(Ts,vehicle_ids)
             obj = obj@cmmn.InterfaceHlc(vehicle_ids);
+            obj.vehicle_ids = vehicle_ids;
 
             obj.Ts = Ts;
 
@@ -49,12 +51,12 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.t = [];
             obj.HP = 10;
             obj.HU = 3;
-            obj.v_min = -inf;
-            obj.v_max = inf;
+            obj.v_min = 0;
+            obj.v_max = 1.5;
             obj.d_ref = 0.5;
-            obj.a_min = -inf;
-            obj.a_max = inf;
-            obj.d_min = -inf;
+            obj.a_min = -1;
+            obj.a_max = 0.5;
+            obj.d_min = 0.3;
             obj.d_max = inf;
         end
         
@@ -102,22 +104,20 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             ym = obj.mt.measure_central(vehicle_state_list);
             disp(ym)
             
-
-%             v_ref_ = 1;
             ref = zeros(obj.ny,1); % reference for y over the prediction horizon, dimensions=(ny*Hp,1). If dimensions=(ny,1), vector will be repeated Hp times.
-
 %             obj.v_ref(obj.counter,1) = v_ref_;
 %             for i=1:obj.ny*obj.HP
 %                 ref(2*i-1) = s_ref_func(obj.t_exp+i*obj.Ts) + obj.s0;
 %                 ref(2*i) = v_ref_;
 %             end
+            obj.v_ref = 0.5*(0<=obj.t_exp & obj.t_exp<15) + 1.4*(15<=obj.t_exp & obj.t_exp<25) + 0.8*(25<=obj.t_exp & obj.t_exp<35);
             ref(1:end-1) = obj.d_ref; % [m]
-            ref(end) = 1.0; % [m/s]
+            ref(end) = obj.v_ref; % [m/s]
             weight_slack_var = 1e5;
             % use only one slack variable
-            [u,y,obj.slack_var(obj.counter,1),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
+%             [u,y,obj.slack_var(obj.counter,1),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
 %             use many slack variables
-%             [u,y,obj.slack_var(obj.counter,1:2*obj.HP*obj.ny),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
+            [u,y,obj.slack_var(obj.counter,1:obj.ny),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
             % Compute control action
             % ----------------------
 
@@ -148,7 +148,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         function on_stop(obj)
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
-%             cmmn.plot_platooning(vehicle_ids, dds_domain)
+            cmmn.plot_platooning(obj.vehicle_ids,1)
 %               figure(1)
 %               subplot(5,1,1)
 %               plot(obj.t, [obj.output(:,1), (obj.s_max+obj.s0)*ones(obj.counter,1)]);
