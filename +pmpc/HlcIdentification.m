@@ -58,7 +58,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             y1 = obj.mt.measure_longitudinal(vehicle_state_list);
             obj.s0 = y1(1);
             UMIN = 0; % min. input constraint
-            UMAX = inf; % max. input constraint
+            UMAX = 1.5; % max. input constraint    %CHANGE from inf to 1.5
             obj.DUMIN = -1*20*obj.Ts; % max. acceleration constraint
             obj.DUMAX = 0.5*20*obj.Ts; % min. acceleration constraint
             YMIN = -inf*ones(2*obj.HP,1); % min. output constraint
