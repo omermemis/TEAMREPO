@@ -1,4 +1,4 @@
-classdef ModelPredictiveControl < cmmn.InterfaceController
+    classdef ModelPredictiveControl < cmmn.InterfaceController
 %MODELPREDICTIVECONTROL  Create a model predictive controller
 %   mpcObj = MODELPREDICTIVECONTROL(MODEL,HP,HU,UMIN,UMAX,DUMIN,DUMAX,YMIN,YMAX,Q,R,Q_KALMAN,R_KALMAN)
 %   creates the MPC object where
