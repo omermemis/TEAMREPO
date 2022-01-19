@@ -4,6 +4,7 @@ function rtigen_matlab
     setenv("NDDSHOME", ['/', getenv('NDDSHOME')]); % Matlab is dropping the leading slash
     % import hlc idl file
     hlc_idl = '+cmmn/HlcPlan.idl';
+%     hlc_idl = '+cmmn/Pose2D.idl';
     assert(isfile(hlc_idl));
     DDS.import(hlc_idl,'matlab', 'f');
 end
