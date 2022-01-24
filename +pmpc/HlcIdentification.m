@@ -6,6 +6,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         path_points
         input
         s_ref
+        v_ref
         output
         counter
         t
@@ -15,34 +16,16 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         s0
         DUMIN
         DUMAX
-        v_max
-        v_min
-        slack_var
-        delta_u
-        s_max
-        val_objective_fcn % objective function
-        nVeh % number of vehicles
-        ny % output length
-        nu % input length
-        nx % number of states
-        d_ref % relative distance reference
-        v_ref % reference speed
-        a_min % min accelelation constraint
-        a_max % max accelelation constraint
-        d_min % min relative distance constraint
-        d_max % max relative distance constraint
-        vehicle_ids
     end
 
     methods
         function obj = HlcIdentification(Ts,vehicle_ids)
             obj = obj@cmmn.InterfaceHlc(vehicle_ids);
-            obj.vehicle_ids = vehicle_ids;
 
             obj.Ts = Ts;
 
-            obj.nVeh = numel(vehicle_ids);
-%             assert(obj.nVeh==1);
+            nVeh = numel(vehicle_ids);
+            assert(nVeh==1);
 
             obj.path_points = cmmn.outer_lane_path();
             obj.mt = cmmn.MeasurementTransformer(obj.path_points,vehicle_ids);
@@ -51,48 +34,31 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.t = [];
             obj.HP = 10;
             obj.HU = 3;
-            obj.v_min = 0;
-            obj.v_max = 1.5;
-            obj.d_ref = 0.5;
-            obj.a_min = -1;
-            obj.a_max = 0.5;
-            obj.d_min = 0.3;
-            obj.d_max = inf;
+            
         end
         
         function on_first_timestep(obj, vehicle_state_list)
             on_first_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
             obj.counter = 0;
+            obj.Ts = 0.1;
             obj.t_exp = 0.1;
-%             MODEL = cmmn.longitudinal_model(obj.Ts);
-            n = length(vehicle_state_list.active_vehicle_ids); % number of vehicles
-            MODEL = cmpc.central_model(obj.Ts,n);
-            obj.ny = size(MODEL.C,1);
-            obj.nu = size(MODEL.B,2);
-            obj.nx = size(MODEL.A,2);
-            UMIN = zeros(obj.nu,1); % min. input constraint
-            UMAX = 1.5*ones(obj.nu,1); % max. input constraint
-            obj.DUMIN = obj.a_min*obj.Ts; % max. acceleration constraint
-            obj.DUMAX = obj.a_max*obj.Ts; % min. acceleration constraint
-            YMIN = zeros(obj.ny,1); % min. output constraint
-            YMIN(1:end-1) = obj.d_min;
-            YMIN(end) = obj.v_min;
-            YMIN = repmat(YMIN,obj.HP,1);
-            YMAX = zeros*ones(obj.ny,1); % max. output constraint
-            YMAX(1:end-1) = obj.d_max;
-            YMAX(end) = obj.v_max;
-            YMAX = repmat(YMAX,obj.HP,1);
-            Q = eye(obj.ny); % for system output
-%             Q = diag([1,2,3,4,5]);
-%             Q(5,5) = 0.1; 
-            R = zeros(obj.nu); % for input changes du
-            Q_KALMAN = eye(obj.nx); % handle process noise
-            R_KALMAN = eye(obj.ny); % handle measurement noise
+            MODEL = cmmn.longitudinal_model(obj.Ts);
+
+            UMIN = 0;
+            UMAX = 1.5;
+            obj.DUMIN = -1;
+            obj.DUMAX = 0.5;
+            YMIN = -inf*ones(2*obj.HP,1);
+            YMAX = inf*ones(2*obj.HP,1);
+            Q = [1 0; 0 0];
+            R = 0;
+            Q_KALMAN = 1;
+            R_KALMAN = [1 0; 0 1];
             obj.mpcObj = cmmn.ModelPredictiveControl(MODEL,obj.HP,obj.HU,UMIN,UMAX,obj.DUMIN,obj.DUMAX,YMIN,YMAX,Q,R,Q_KALMAN,R_KALMAN);
-            x_init = zeros(obj.nx,1);
+            x_init = [0;0;0;0];
             obj.mpcObj.observer.x_k_minus_one = x_init;
-%             y1 = obj.mt.measure_longitudinal(vehicle_state_list);
-%             obj.s0 = y1(1);
+            y1 = obj.mt.measure_longitudinal(vehicle_state_list);
+            obj.s0 = y1(1);
         end
 
         function on_each_timestep(obj, vehicle_state_list)
@@ -100,24 +66,21 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             on_each_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
 
             % pose to distance on path f/e veh
-%             ym = obj.mt.measure_longitudinal(vehicle_state_list);
-            ym = obj.mt.measure_central(vehicle_state_list);
+            ym = obj.mt.measure_longitudinal(vehicle_state_list);
             disp(ym)
             
-            ref = zeros(obj.ny,1); % reference for y over the prediction horizon, dimensions=(ny*Hp,1). If dimensions=(ny,1), vector will be repeated Hp times.
-%             obj.v_ref(obj.counter,1) = v_ref_;
-%             for i=1:obj.ny*obj.HP
-%                 ref(2*i-1) = s_ref_func(obj.t_exp+i*obj.Ts) + obj.s0;
-%                 ref(2*i) = v_ref_;
-%             end
-            obj.v_ref = 0.5*(0<=obj.t_exp & obj.t_exp<15) + 1.4*(15<=obj.t_exp & obj.t_exp<25) + 0.8*(25<=obj.t_exp & obj.t_exp<35);
-            ref(1:end-1) = obj.d_ref; % [m]
-            ref(end) = obj.v_ref; % [m/s]
+            s_ref_func = @(t) 1.1*t + 0.5*sin(t) + 0;
+            v_ref_ = 1;
+            ref = zeros(2*obj.HP,1);
+            obj.s_ref(obj.counter) = s_ref_func(obj.t_exp) + obj.s0;
+            obj.v_ref(obj.counter) = v_ref_;
+            for i=1:obj.HP
+                ref(2*i-1) = s_ref_func(obj.t_exp+i*obj.Ts) + obj.s0;
+
+                ref(2*i) = v_ref_;
+            end
             weight_slack_var = 1e5;
-            % use only one slack variable
-%             [u,y,obj.slack_var(obj.counter,1),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
-%             use many slack variables
-            [u,y,obj.slack_var(obj.counter,1:obj.ny),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
+            [u,y,~,~,~] = obj.mpcObj.step(ym,ref,weight_slack_var);
             % Compute control action
             % ----------------------
 
@@ -137,9 +100,10 @@ classdef HlcIdentification < cmmn.InterfaceHlc
 
 
             
-            obj.input(obj.counter,1:obj.nu) = u';
-            obj.output(obj.counter,1:obj.ny) = ym';
-            obj.t(obj.counter,1) = obj.t_exp;
+            obj.input(obj.counter,1) = u;
+            obj.output(obj.counter,1) = ym(1);
+            obj.output(obj.counter,2) = ym(2);
+            obj.t(obj.counter) = obj.t_exp;
             % Apply control action
             % --------------------
             obj.cpmLab.apply_path_tracking(u, obj.path_points, obj.dt_valid_after_nanos)
@@ -148,38 +112,38 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         function on_stop(obj)
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
-            cmmn.plot_platooning(obj.vehicle_ids,1)
-%               figure(1)
-%               subplot(5,1,1)
-%               plot(obj.t, [obj.output(:,1), (obj.s_max+obj.s0)*ones(obj.counter,1)]);
-%               grid on
-%               legend('reference distance','real distance','max distance constraint')
-%               ylabel('distance [m]')
-%               subplot(5,1,2)
-%               plot(obj.t, [obj.input, obj.output(:,obj.ny), obj.v_max*ones(obj.counter,1), obj.v_min*ones(obj.counter,1)]);
-%               grid on
-%               legend('input speed','real speed','max output speed constraint','min output speed constraint')
-%               ylabel('speed [m/s]')
-%               ylim([obj.v_min-0.2, obj.v_max+0.2])
-%               subplot(5,1,3)
-%               plot(obj.t(2:end), [obj.delta_u(2:end)/obj.Ts, diff(obj.output(:,2))/obj.Ts,...
-%                   obj.DUMAX/obj.Ts*ones(obj.counter-1,1), obj.DUMIN/obj.Ts*ones(obj.counter-1,1)])
-%               grid on
-%               legend('input acceleration','real acceleration','max acceleration constraint','min acceleration constraint')
-%               xlabel('t [s]')
-%               ylabel('acceleration [m/s^2]')
-%               ylim([obj.DUMIN/obj.Ts-0.2; obj.DUMAX/obj.Ts+0.2])
-              subplot(5,1,4)
-              plot(obj.t, obj.slack_var)
-              grid on
+              figure(1)
+              subplot(3,1,1)
+              plot(obj.t,obj.s_ref,obj.t,obj.output(:,1));
+              legend('reference distance','real distance')
+              ylabel('distance')
+              subplot(3,1,2)
+              plot(obj.t,obj.v_ref,obj.t,obj.output(:,2),obj.t,obj.input)
+              legend('reference speed','real speed','input speed')
+              ylabel('speed')
+              subplot(3,1,3)
+              plot(obj.t(2:end),diff(obj.output(:,2)))
+              hold on
+              plot(obj.t(2:end),obj.DUMIN*ones(1,size(obj.t,2)-1))
+              plot(obj.t(2:end),obj.DUMAX*ones(1,size(obj.t,2)-1))
+              hold off
+              legend('real acceleration','minimal acceleration','maximal acceleration')
               xlabel('t [s]')
-              ylabel('slack variable')
-              subplot(5,1,5)
-              plot(obj.t, obj.val_objective_fcn)
-              grid on
-              xlabel('t [s]')
-              ylabel('objective function') 
-
+              ylabel('speed')
+              ylim([obj.DUMIN-0.2 obj.DUMAX+0.2])
+%             data = iddata(obj.output, obj.input, obj.Ts);
+%             data.InputName  = {'VelocityIn'};
+%             data.OutputName = {'DistanceOut';'VelocityOut'};
+%             save('data.mat','data')
+%             order = (1:1:10); 
+%             sys = ssest(data, order);    
+%             save('sys.mat','sys')
+%             save('data.mat','data')
+%             figure(1)
+%             subplot(2,1,1)
+%             plot(data)
+%             subplot(2,1,2)
+%             compare(data, sys)
                 
         end
 

@@ -1,4 +1,4 @@
-classdef HlcIdentification < cmmn.InterfaceHlc
+classdef Hlc < cmmn.InterfaceHlc
 % HlcIdentification implements an HLC for model identification
     properties
         mt
@@ -32,13 +32,40 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         d_min % min relative distance constraint
         d_max % max relative distance constraint
         vehicle_ids
+        reader_vehicleOutput
+        writer_vehicleOutput
     end
 
     methods
-        function obj = HlcIdentification(Ts,vehicle_ids)
+        function obj = Hlc(Ts,vehicle_ids)
             obj = obj@cmmn.InterfaceHlc(vehicle_ids);
             obj.vehicle_ids = vehicle_ids;
+            matlabOutputTopicName = 'vehicleOutput';
+            obj.writer_vehicleOutput = DDS.DataWriter(DDS.Publisher(obj.cpmLab.matlabParticipant), 'HlcPlan', matlabOutputTopicName);
+            Filter = DDS.contentFilter; % create Filter instance
+            Filter.FilterExpression = 'vehicle_id = %0';
+            myID = 5;
+            Filter.FilterParameters = {num2str(myID)};
+            obj.reader_vehicleOutput = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'HlcPlan', matlabOutputTopicName,'',Filter);
+            vehicleOutput = HlcPlan;
+            for i=[4,5,6,7]
+                vehicleOutput.vehicle_id = i;
+                vehicleOutput.output = repmat([1;i],10,1);
+                obj.writer_vehicleOutput.write(vehicleOutput);
+            end
 
+            [topicData1, status1,  sampleCount1, sampleInfo1] = obj.reader_vehicleOutput.take();
+            disp(topicData1)
+            obj.reader_vehicleOutput = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'HlcPlan', matlabOutputTopicName);
+            for i=[4,5,6,7]
+                vehicleOutput.vehicle_id = i;
+                vehicleOutput.output = repmat([1;i],10,1);
+                obj.writer_vehicleOutput.write(vehicleOutput);
+            end
+            [topicData2, status2,  sampleCount2, sampleInfo2] = obj.reader_vehicleOutput.take();
+            for data=topicData2
+                disp(data)
+            end
             obj.Ts = Ts;
 
             obj.nVeh = numel(vehicle_ids);
@@ -169,16 +196,6 @@ classdef HlcIdentification < cmmn.InterfaceHlc
 %               xlabel('t [s]')
 %               ylabel('acceleration [m/s^2]')
 %               ylim([obj.DUMIN/obj.Ts-0.2; obj.DUMAX/obj.Ts+0.2])
-              subplot(5,1,4)
-              plot(obj.t, obj.slack_var)
-              grid on
-              xlabel('t [s]')
-              ylabel('slack variable')
-              subplot(5,1,5)
-              plot(obj.t, obj.val_objective_fcn)
-              grid on
-              xlabel('t [s]')
-              ylabel('objective function') 
 
                 
         end

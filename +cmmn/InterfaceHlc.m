@@ -14,6 +14,7 @@ classdef InterfaceHlc < handle
         function obj = InterfaceHlc(vehicle_ids)
             obj.is_first_timestep = true;
             obj.cpmLab = cmmn.CpmLab(vehicle_ids);
+
         end
 
         function start(obj)

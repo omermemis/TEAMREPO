@@ -14,6 +14,8 @@ classdef InterfaceHlc < handle
         function obj = InterfaceHlc(vehicle_ids)
             obj.is_first_timestep = true;
             obj.cpmLab = cmmn.CpmLab(vehicle_ids);
+            obj.cpmLab.writer_vehicleOutput = DDS.DataWriter(DDS.Publisher(obj.cpmLab.matlabParticipant), 'HlcPlan', 'vehicleOutput');
+
         end
 
         function start(obj)
