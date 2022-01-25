@@ -41,26 +41,7 @@ classdef Hlc < cmmn.InterfaceHlc
     methods
         function obj = Hlc(Ts,vehicle_ids)
             obj = obj@cmmn.InterfaceHlc(vehicle_ids);
-            obj.vehicle_ids = vehicle_ids;
-%             matlabOutputTopicName = 'vehicleOutput'; 
-%             obj.writer_vehicleOutput = DDS.DataWriter(DDS.Publisher(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName);
-%             obj.nVeh = numel(vehicle_ids);
-%             % create filters for each vehicle
-%             for idx=1:obj.nVeh
-%                 obj.currentVehicleID = obj.vehicle_ids(end-idx+1); % from higher ID to lower ID
-%                 
-%                 % create DDS.DataReader
-%                 if idx>=2
-%                     obj.targetVehicleID = obj.vehicle_ids(end-idx+2); % the vehicle, which should be considered by the current vehicle 
-%                     Filter = DDS.contentFilter; % create an instance of Filter
-%                     Filter.FilterExpression = 'vehicle_id = %0';
-%                     Filter.FilterParameters = {num2str(obj.targetVehicleID)};
-%                     obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName,'',Filter); % reader with filter of vehicles (except for the leading vehicle)
-%                 else
-%                     obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName); % reader without filter for leading vehicle (maybe not necessary, because it doesn't need to read the message from other vehicles)
-% 
-%                 end
-%             end             
+            obj.vehicle_ids = vehicle_ids;     
             obj.Ts = Ts;
 
             obj.path_points = cmmn.outer_lane_path();
@@ -68,22 +49,15 @@ classdef Hlc < cmmn.InterfaceHlc
             obj.input = [];
             obj.output = [];
             obj.t = [];
-            obj.HP = 10;
+            obj.HP = 30; % HP = 30 and HU =3 is the best conbination until now (see results under folder saved/dmpc/HP30-HU3)
             obj.HU = 3;
             obj.v_min = 0;
             obj.v_max = 1.5;
             obj.d_ref = 0.5;
+            obj.d_min = 0.3;
             obj.a_min = -1;
             obj.a_max = 0.5;
-            obj.d_min = 0.3;
-        end
-        
-        function on_first_timestep(obj, vehicle_state_list)
-            on_first_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
-            obj.counter = 0;
-            obj.t_exp = 0.1;
-%             MODEL = cmmn.longitudinal_model(obj.Ts);
-%             n = length(vehicle_state_list.active_vehicle_ids); % number of vehicles 
+            
             MODEL_leader = dmpc.longitudinal_model_leader(obj.Ts); % the same as cmmn.longitudinal_model (the output is distance and velocity)
             MODEL_others = dmpc.longitudinal_model_others(obj.Ts); % almost the same as cmmn.longitudinal_model, only C-matrix changes from two lines to one line because the output is only distance
             obj.ny_leader = size(MODEL_leader.C,1);
@@ -115,7 +89,7 @@ classdef Hlc < cmmn.InterfaceHlc
                 obj.currentVehicleID = obj.vehicle_ids(end-idx+1); % from higher ID to lower ID
                 
                 if idx==1 % leading vehicle
-                    obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName); % reader without filter for leading vehicle (maybe not necessary, because it doesn't need to read the message from other vehicles)
+                    obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName); % reader without filter for leading vehicle (maybe not necessary, because the leading vehicle doesn't need to read messages from other vehicles)
                     obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL_leader,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN_leader,YMAX_leader,Q_leader,R,Q_KALMAN,R_KALMAN_leader); % mpc instance for leading vehicle
                 else % other vehicles
                     obj.targetVehicleID = obj.vehicle_ids(end-idx+2); % the vehicle, which should be considered by the current vehicle 
@@ -125,13 +99,21 @@ classdef Hlc < cmmn.InterfaceHlc
                     obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName,'',Filter); % reader with filter of vehicles (except for the leading vehicle)
                     obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL_others,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN_others,YMAX_others,Q_others,R,Q_KALMAN,R_KALMAN_others); % mpc instance for other vehicles
                 end
+                x_init = zeros(obj.nx,1);
+                obj.mpcObj{idx}.observer.x_k_minus_one = x_init; % initial state for Kalman filter
             end  
             
-            x_init = zeros(obj.nx,1);
-            obj.mpcObj{1}.observer.x_k_minus_one = x_init;
-            obj.mpcObj{2}.observer.x_k_minus_one = x_init;
+        end
+        
+        function on_first_timestep(obj, vehicle_state_list)
+            on_first_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
+            obj.counter = 0;
+            obj.t_exp = 0.1;
+%             MODEL = cmmn.longitudinal_model(obj.Ts);
+%             n = length(vehicle_state_list.active_vehicle_ids); % number of vehicles 
             y1 = obj.mt.measure_longitudinal(vehicle_state_list);
             obj.s0 = y1(1);
+
         end
 
         function on_each_timestep(obj, vehicle_state_list)
@@ -151,12 +133,12 @@ classdef Hlc < cmmn.InterfaceHlc
 
                 if idx==1 % leading vehicle
                     ym_currentVehicle = ym(end-1:end); % measured output of the leading vehicle
-%                     obj.v_ref_ = 0.5*(0<=obj.t_exp & obj.t_exp<15) + 1.4*(15<=obj.t_exp & obj.t_exp<25) + 0.8*(25<=obj.t_exp & obj.t_exp<35); 
-                    obj.v_ref_ = 1.0; 
+                    obj.v_ref_ = 0.5*(0<=obj.t_exp & obj.t_exp<15) + 1.4*(15<=obj.t_exp & obj.t_exp<25) + 0.8*(25<=obj.t_exp & obj.t_exp<35); 
+%                     obj.v_ref_ = 1.0; 
                     ref_leader = repmat([100; obj.v_ref_], obj.HP, 1); % reference for y over the prediction horizon, dimensions=(ny*Hp,1). If dimensions=(ny,1), vector will be repeated Hp times.
                     obj.output(obj.counter,idx) = ym_currentVehicle(2); % store real speed
                     obj.v_ref(obj.counter,idx) = obj.v_ref_; % store reference speed
-                    [u(obj.nVeh,1),y,obj.slack_var(obj.counter,idx),obj.delta_u(obj.counter,idx),obj.val_objective_fcn(obj.counter,idx)] = obj.mpcObj{idx}.step(ym_currentVehicle,ref_leader,weight_slack_var);
+                    [u(obj.nVeh,1), y, obj.slack_var(obj.counter,idx), obj.delta_u(obj.counter,idx), obj.val_objective_fcn(obj.counter,idx)] = obj.mpcObj{idx}.step(ym_currentVehicle,ref_leader,weight_slack_var);
     
                 else % other vehicles
                     ym_currentVehicle = ym(end-idx); % measured output of other vehicles
@@ -168,19 +150,15 @@ classdef Hlc < cmmn.InterfaceHlc
                     end
 
                     ref_others = (dataRead.output - obj.d_ref)'; % reference trajectory for other vehicles
-                    ymin = ref_others-obj.d_min; % min. output constraint
-                    ymax = repmat(inf, obj.HP, 1); % max. output constraint
-%                     ref_others = repmat(ym_currentVehicle+1,obj.HP,1); % reference trajectory for other vehicles
+                    ymin = repmat(-inf, obj.HP, 1); % update min. output constraint
+                    ymax = ref_others+obj.d_min; % update max. output constraint
 %                     s_ref_func = @(t) 1.1*t + 0.5*sin(t) + 0;
 %                     for i=1:obj.HP
 %                         ref_others(i) = s_ref_func(obj.t_exp+i*obj.Ts) + obj.s0;
 %                     end
-%                     ref_others = repmat(ym_currentVehicle+1,obj.HP,1); % reference trajectory for other vehicles
-%                     ymin = repmat(-inf,obj.HP,1); % min. output constraint
-%                     ymax = repmat(inf, obj.HP, 1); % max. output constraint
                     obj.s_ref(obj.counter,idx) = ref_others(1);
                     obj.output(obj.counter,idx) = ym_currentVehicle;
-                    [u(obj.nVeh-idx+1,1),y,obj.slack_var(obj.counter,idx),obj.delta_u(obj.counter,idx),obj.val_objective_fcn(obj.counter,idx)] = obj.mpcObj{idx}.step(ym_currentVehicle,ref_others,weight_slack_var,ymin,ymax);
+                    [u(obj.nVeh-idx+1,1), y, obj.slack_var(obj.counter,idx), obj.delta_u(obj.counter,idx), obj.val_objective_fcn(obj.counter,idx)] = obj.mpcObj{idx}.step(ym_currentVehicle,ref_others,weight_slack_var,ymin,ymax);
 
                 end
                     
@@ -201,40 +179,29 @@ classdef Hlc < cmmn.InterfaceHlc
             % Control action
             obj.cpmLab.apply_path_tracking(u, obj.path_points, obj.dt_valid_after_nanos)
 
-
-            % use only one slack variable
-%             [u,y,obj.slack_var(obj.counter,1),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
-%             use many slack variables
-%             [u,y,obj.slack_var(obj.counter,1:obj.ny),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var,Q);
-            
-
-
-            
-%             obj.input(obj.counter,1:obj.nu) = u';
-%             obj.output(obj.counter,1:obj.ny) = ym';
             obj.t(obj.counter,1) = obj.t_exp;
-            % Apply control action
-            % --------------------
-%             obj.cpmLab.apply_path_tracking(u, obj.path_points, obj.dt_valid_after_nanos)
         end
 
         function on_stop(obj)
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
-%             cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'))
-              figure(1)
-              subplot(obj.nVeh,1,1)
-              plot(obj.t,[obj.v_ref(:,1) obj.output(:,1)]);
-              legend('reference speed','real speed')
-              title(['VehicleID: ' num2str(obj.vehicle_ids(obj.nVeh))])
-              for i=2:obj.nVeh
-                  subplot(obj.nVeh,1,i)
-                  plot(obj.t,[obj.s_ref(:,i) obj.output(:,i)]);
-                  legend('reference distance','real distance')
-                  title(['VehicleID: ' num2str(obj.vehicle_ids(obj.nVeh-i+1))])
-              end
-              
-              ylabel('distance')
+            newFolderName = ['HP' num2str(obj.HP) '-HU' num2str(obj.HU)];
+            pathStoreFig = ['saved/dmpc/' newFolderName];
+            mkdir(pathStoreFig); % make new folder to store figures created by plot_platooning, in order to make it easier to compare the different results when tuning HP and HU
+            cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'),pathStoreFig)
+%               figure(10)
+%               subplot(obj.nVeh,1,1)
+%               plot(obj.t,[obj.v_ref(:,1) obj.output(:,1)]);
+%               legend('reference speed','real speed')
+%               title(['VehicleID: ' num2str(obj.vehicle_ids(obj.nVeh))])
+%               for i=2:obj.nVeh
+%                   subplot(obj.nVeh,1,i)
+%                   plot(obj.t,[obj.s_ref(:,i) obj.output(:,i)]);
+%                   legend('reference distance','real distance')
+%                   title(['VehicleID: ' num2str(obj.vehicle_ids(obj.nVeh-i+1))])
+%               end
+%               
+%               ylabel('distance')
 %               subplot(5,1,1)
 %               plot(obj.t, [obj.output(:,1), (obj.s_max+obj.s0)*ones(obj.counter,1)]);
 %               grid on
@@ -254,20 +221,20 @@ classdef Hlc < cmmn.InterfaceHlc
 %               xlabel('t [s]')
 %               ylabel('acceleration [m/s^2]')
 %               ylim([obj.DUMIN/obj.Ts-0.2; obj.DUMAX/obj.Ts+0.2])
-              figure(2)
-              subplot(2,1,1)
-              plot(obj.t, obj.slack_var)
-              grid on
-              xlabel('t [s]')
-              ylabel('slack variable')
-              legend_ = cellstr('VehicleID: '+string(obj.vehicle_ids(end:-1:1)));
-              legend (legend_)
-              subplot(2,1,2)
-              plot(obj.t, obj.val_objective_fcn)
-              grid on
-              xlabel('t [s]')
-              ylabel('objective function') 
-              legend (legend_)
+%               figure(20)
+%               subplot(2,1,1)
+%               plot(obj.t, obj.slack_var)
+%               grid on
+%               xlabel('t [s]')
+%               ylabel('slack variable')
+%               legend_ = cellstr('VehicleID: '+string(obj.vehicle_ids(end:-1:1)));
+%               legend (legend_)
+%               subplot(2,1,2)
+%               plot(obj.t, obj.val_objective_fcn)
+%               grid on
+%               xlabel('t [s]')
+%               ylabel('objective function') 
+%               legend (legend_)
                 
         end
 

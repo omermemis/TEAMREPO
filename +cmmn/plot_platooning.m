@@ -1,4 +1,4 @@
-function plot_platooning(vehicle_ids, dds_domain)
+function plot_platooning(vehicle_ids, dds_domain, pathStoreFig)
 % plot_platooning visualizes relevant data for the presentation of a platooning
 %   controller
 
@@ -109,7 +109,7 @@ xlim([0, t_max - t_min]);
 % ylim([0 v_max]);
 
 % save as png
-saveas(gcf,'t-v.png');
+saveas(gcf,[pathStoreFig '/t-v.png']);
 
 %% t-v plot (output velocity)
 
@@ -169,7 +169,7 @@ xlim([0, t_max - t_min]);
 % ylim([0 v_max] + 0.1*[-1 1]);
 
 % save as png
-saveas(gcf,'t-v_out.png');
+saveas(gcf,[pathStoreFig '/t-v_out.png']);
 
 
 %% t-a plot
@@ -218,7 +218,7 @@ xlim([0, t_max - t_min]);
 % ylim([a_min a_max]);
 
 % save as png
-saveas(gcf,'t-a.png');
+saveas(gcf,[pathStoreFig '/t-a.png']);
 
 
 
@@ -302,7 +302,7 @@ if nVeh>1
     ylabel('Distance $d\ [m]$','Interpreter','LaTex');
 
     % save as png
-    saveas(gcf,'t-d.png');
+    saveas(gcf,[pathStoreFig '/t-d.png']);
 end
 
 end
