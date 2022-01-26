@@ -5,12 +5,12 @@
 % Filename                :HlcPlan
 % MATLAB version          :9.7
 % DDS Toolbox PSP version :Unknown
-% File generated on       :19-Jan-2022 12:48:25
+% File generated on       :26-Jan-2022 10:15:45
 %
 
 classdef HlcPlan
 properties
-vehicle_id = double(0);
+vehicle_id = uint8(0);
 output = repmat(double(0), 1, 100);
 end
 

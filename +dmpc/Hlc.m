@@ -18,7 +18,7 @@ classdef Hlc < cmmn.InterfaceHlc
         v_min
         slack_var
         delta_u
-        s_max
+        s_maxdouble
         val_objective_fcn % objective function
         nVeh % number of vehicles
         ny_leader % output length of the leading vehicle
@@ -90,6 +90,8 @@ classdef Hlc < cmmn.InterfaceHlc
                 
                 if idx==1 % leading vehicle
                     obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName); % reader without filter for leading vehicle (maybe not necessary, because the leading vehicle doesn't need to read messages from other vehicles)
+                    obj.reader_vehicleOutput{idx}.WaitSet = true;
+                    obj.reader_vehicleOutput{idx}.WaitSetTimeout = 2; % [s]
                     obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL_leader,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN_leader,YMAX_leader,Q_leader,R,Q_KALMAN,R_KALMAN_leader); % mpc instance for leading vehicle
                 else % other vehicles
                     obj.targetVehicleID = obj.vehicle_ids(end-idx+2); % the vehicle, which should be considered by the current vehicle 
@@ -97,6 +99,8 @@ classdef Hlc < cmmn.InterfaceHlc
                     Filter.FilterExpression = 'vehicle_id = %0';
                     Filter.FilterParameters = {num2str(obj.targetVehicleID)};
                     obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName,'',Filter); % reader with filter of vehicles (except for the leading vehicle)
+                    obj.reader_vehicleOutput{idx}.WaitSet = true;
+                    obj.reader_vehicleOutput{idx}.WaitSetTimeout = 2; % [s]
                     obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL_others,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN_others,YMAX_others,Q_others,R,Q_KALMAN,R_KALMAN_others); % mpc instance for other vehicles
                 end
                 x_init = zeros(obj.nx,1);
@@ -147,6 +151,7 @@ classdef Hlc < cmmn.InterfaceHlc
                     [dataRead,~,count,~] = obj.reader_vehicleOutput{idx}.take(); % take the message sent by the target vehicle
                     while(count==0) % sometimes, obj.reader_vehicleOutput{idx}.take() failed to take the message, so I use while(), until message was taken
                         [dataRead,~,count,~] = obj.reader_vehicleOutput{idx}.take(); 
+                        warning('Try to read from domain again...')
                     end
 
                     ref_others = (dataRead.output - obj.d_ref)'; % reference trajectory for other vehicles
@@ -164,7 +169,7 @@ classdef Hlc < cmmn.InterfaceHlc
                     
                 if idx<obj.nVeh % write data to damain if the current vehicle is not the last one
                     dataWrite = dmpc.HlcPlan; % initialize the data type to be sent
-                    dataWrite.vehicle_id = obj.currentVehicleID;
+                    dataWrite.vehicle_id = uint8(obj.currentVehicleID);
                     if idx==1 % leading vehicle
                         dataWrite.output = y(1:2:end)'; % leading vehicle has two outputs, we only care distance 
                     else % other vehicles

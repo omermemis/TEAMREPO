@@ -3,7 +3,7 @@
 
 struct HlcPlan 
 {
-    double vehicle_id; //@key
+    octet vehicle_id; //@key
     // TODO extend
     sequence<double> output;
 };
