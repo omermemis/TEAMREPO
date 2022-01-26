@@ -57,7 +57,7 @@ classdef checkPointLab6 < cmmn.InterfaceHlc
 
             vehicleOutput = dmpc.HlcPlan;
             for i=[4,5,6,7] % write 4 messages to domain
-                vehicleOutput.vehicle_id = i;
+                vehicleOutput.vehicle_id = uint8(i);
                 vehicleOutput.output = repmat([1;i],10,1);
                 obj.writer_vehicleOutput.write(vehicleOutput);
             end
