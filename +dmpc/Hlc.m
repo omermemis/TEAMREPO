@@ -21,8 +21,7 @@ classdef Hlc < cmmn.InterfaceHlc
         s_maxdouble
         val_objective_fcn % objective function
         nVeh % number of vehicles
-        ny_leader % output length of the leading vehicle
-        ny_others % output length of other vehicles
+        ny % output length
         nu % input length
         nx % number of states
         d_ref % relative distance reference
@@ -49,7 +48,7 @@ classdef Hlc < cmmn.InterfaceHlc
             obj.input = [];
             obj.output = [];
             obj.t = [];
-            obj.HP = 30; % HP = 30 and HU =3 is the best conbination until now (see results under folder saved/dmpc/HP30-HU3)
+            obj.HP = 10; % HP = 30 and HU =3 is the best conbination until now (see results under folder saved/dmpc/HP30-HU3)
             obj.HU = 3;
             obj.v_min = 0;
             obj.v_max = 1.5;
@@ -58,27 +57,22 @@ classdef Hlc < cmmn.InterfaceHlc
             obj.a_min = -1;
             obj.a_max = 0.5;
             
-            MODEL_leader = dmpc.longitudinal_model_leader(obj.Ts); % the same as cmmn.longitudinal_model (the output is distance and velocity)
-            MODEL_others = dmpc.longitudinal_model_others(obj.Ts); % almost the same as cmmn.longitudinal_model, only C-matrix changes from two lines to one line because the output is only distance
-            obj.ny_leader = size(MODEL_leader.C,1);
-            obj.ny_others = size(MODEL_others.C,1);
-            obj.nu = size(MODEL_leader.B,2);
-            obj.nx = size(MODEL_leader.A,2);
+            MODEL = cmmn.longitudinal_model(obj.Ts);  
+            obj.ny = size(MODEL.C,1);
+            obj.nu = size(MODEL.B,2);
+            obj.nx = size(MODEL.A,2);
             UMIN = obj.v_min*ones(obj.nu,1); % min. input constraint
             UMAX = obj.v_max*ones(obj.nu,1); % max. input constraint
             DUMIN = obj.a_min*obj.Ts; % max. acceleration constraint
             DUMAX = obj.a_max*obj.Ts; % min. acceleration constraint  
-            YMIN_leader = repmat([-inf;-inf], obj.HP, 1); % min. output constraint for leading vehicle
-            YMIN_others = repmat(-inf, obj.HP, 1); % min. output constraint for other vehicles, here not important because in the step function ymin will be calculated again
-            YMAX_leader = repmat([inf;inf], obj.HP, 1); % max. output constraint for leading vehicle
-            YMAX_others = repmat(inf, obj.HP, 1); % max. output constraint for other vehicles
+            YMIN = repmat([-inf;-inf], obj.HP, 1);
+            YMAX = repmat([inf;inf], obj.HP, 1);
             Q_leader = [0 0;0 1]; % Q-matrix of mpc for leading vehicle
-            Q_others = 1; % Q-matrix of mpc for other vehicles
+            Q_others = [1 0;0 0]; % Q-matrix of mpc for other vehicles
 
             R = zeros(obj.nu); % for input changes du
             Q_KALMAN = eye(obj.nx); % handle process noise
-            R_KALMAN_leader = eye(obj.ny_leader); % handle measurement noise
-            R_KALMAN_others = eye(obj.ny_others); % handle measurement noise
+            R_KALMAN = eye(obj.ny); % handle measurement noise
             
             % create mpc instances and filters for each vehicle
             obj.mpcObj = {}; % cell to store mpc instances
@@ -92,7 +86,7 @@ classdef Hlc < cmmn.InterfaceHlc
                     obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName); % reader without filter for leading vehicle (maybe not necessary, because the leading vehicle doesn't need to read messages from other vehicles)
                     obj.reader_vehicleOutput{idx}.WaitSet = true;
                     obj.reader_vehicleOutput{idx}.WaitSetTimeout = 2; % [s]
-                    obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL_leader,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN_leader,YMAX_leader,Q_leader,R,Q_KALMAN,R_KALMAN_leader); % mpc instance for leading vehicle
+                    obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN,YMAX,Q_leader,R,Q_KALMAN,R_KALMAN); % mpc instance for leading vehicle
                 else % other vehicles
                     obj.targetVehicleID = obj.vehicle_ids(end-idx+2); % the vehicle, which should be considered by the current vehicle 
                     Filter = DDS.contentFilter; % create an instance of Filter
@@ -101,7 +95,7 @@ classdef Hlc < cmmn.InterfaceHlc
                     obj.reader_vehicleOutput{idx} = DDS.DataReader(DDS.Subscriber(obj.cpmLab.matlabParticipant), 'dmpc.HlcPlan', matlabOutputTopicName,'',Filter); % reader with filter of vehicles (except for the leading vehicle)
                     obj.reader_vehicleOutput{idx}.WaitSet = true;
                     obj.reader_vehicleOutput{idx}.WaitSetTimeout = 2; % [s]
-                    obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL_others,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN_others,YMAX_others,Q_others,R,Q_KALMAN,R_KALMAN_others); % mpc instance for other vehicles
+                    obj.mpcObj{idx} = cmmn.ModelPredictiveControl(MODEL,obj.HP,obj.HU,UMIN,UMAX,DUMIN,DUMAX,YMIN,YMAX,Q_others,R,Q_KALMAN,R_KALMAN); % mpc instance for other vehicles
                 end
                 x_init = zeros(obj.nx,1);
                 obj.mpcObj{idx}.observer.x_k_minus_one = x_init; % initial state for Kalman filter
@@ -113,8 +107,6 @@ classdef Hlc < cmmn.InterfaceHlc
             on_first_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
             obj.counter = 0;
             obj.t_exp = 0.1;
-%             MODEL = cmmn.longitudinal_model(obj.Ts);
-%             n = length(vehicle_state_list.active_vehicle_ids); % number of vehicles 
             y1 = obj.mt.measure_longitudinal(vehicle_state_list);
             obj.s0 = y1(1);
 
@@ -127,7 +119,7 @@ classdef Hlc < cmmn.InterfaceHlc
             % pose to distance on path f/e veh
 %             ym = obj.mt.measure_longitudinal(vehicle_state_list);
             ym = obj.mt.measure_longitudinal(vehicle_state_list);
-            ym = [ym(1:2:end-2);ym(end-1);ym(end)]; % ym=[s1;s2;...;s(n-1);s(n);v(n)], where, for example, v(n) and s(n) is the speed and distance of the leading vehicle.
+%             ym = [ym(1:2:end-2);ym(end-1);ym(end)]; % ym=[s1;s2;...;s(n-1);s(n);v(n)], where, for example, v(n) and s(n) is the speed and distance of the leading vehicle.
             disp(ym)
             weight_slack_var = 1e5;
             u = zeros(obj.nVeh,1); % initialize the control input for the platoon
@@ -145,7 +137,7 @@ classdef Hlc < cmmn.InterfaceHlc
                     [u(obj.nVeh,1), y, obj.slack_var(obj.counter,idx), obj.delta_u(obj.counter,idx), obj.val_objective_fcn(obj.counter,idx)] = obj.mpcObj{idx}.step(ym_currentVehicle,ref_leader,weight_slack_var);
     
                 else % other vehicles
-                    ym_currentVehicle = ym(end-idx); % measured output of other vehicles
+                    ym_currentVehicle = ym(end-2*idx+1:end-2*idx+2); % measured output of other vehicles
 %                     ref = zeros(obj.ny*obj.HP,1); % reference for y over the prediction horizon, dimensions=(ny*Hp,1). If dimensions=(ny,1), vector will be repeated Hp times.
                     obj.targetVehicleID = obj.vehicle_ids(end-idx+2); % vehicle which should be considered by the current vehicle 
                     [dataRead,~,count,~] = obj.reader_vehicleOutput{idx}.take(); % take the message sent by the target vehicle
@@ -155,14 +147,15 @@ classdef Hlc < cmmn.InterfaceHlc
                     end
 
                     ref_others = (dataRead.output - obj.d_ref)'; % reference trajectory for other vehicles
-                    ymin = repmat(-inf, obj.HP, 1); % update min. output constraint
+                    ymin = repmat(-inf, obj.HP*obj.ny, 1); % update min. output constraint
                     ymax = ref_others+obj.d_min; % update max. output constraint
+                    ymax(2:2:end) = inf; 
 %                     s_ref_func = @(t) 1.1*t + 0.5*sin(t) + 0;
 %                     for i=1:obj.HP
 %                         ref_others(i) = s_ref_func(obj.t_exp+i*obj.Ts) + obj.s0;
 %                     end
-                    obj.s_ref(obj.counter,idx) = ref_others(1);
-                    obj.output(obj.counter,idx) = ym_currentVehicle;
+%                     obj.s_ref(obj.counter,idx) = ref_others(1);
+%                     obj.output(obj.counter,idx) = ym_currentVehicle;
                     [u(obj.nVeh-idx+1,1), y, obj.slack_var(obj.counter,idx), obj.delta_u(obj.counter,idx), obj.val_objective_fcn(obj.counter,idx)] = obj.mpcObj{idx}.step(ym_currentVehicle,ref_others,weight_slack_var,ymin,ymax);
 
                 end
@@ -170,11 +163,12 @@ classdef Hlc < cmmn.InterfaceHlc
                 if idx<obj.nVeh % write data to damain if the current vehicle is not the last one
                     dataWrite = dmpc.HlcPlan; % initialize the data type to be sent
                     dataWrite.vehicle_id = uint8(obj.currentVehicleID);
-                    if idx==1 % leading vehicle
-                        dataWrite.output = y(1:2:end)'; % leading vehicle has two outputs, we only care distance 
-                    else % other vehicles
-                        dataWrite.output = y'; % other vehicles only has one output, namely distance
-                    end
+                    dataWrite.output = y';
+%                     if idx==1 % leading vehicle
+%                         dataWrite.output = y(1:2:end)'; % leading vehicle has two outputs, we only care distance 
+%                     else % other vehicles
+%                         dataWrite.output = y'; % other vehicles only has one output, namely distance
+%                     end
                     obj.writer_vehicleOutput.write(dataWrite);
                 end
                    
@@ -193,7 +187,7 @@ classdef Hlc < cmmn.InterfaceHlc
             newFolderName = ['HP' num2str(obj.HP) '-HU' num2str(obj.HU)];
             pathStoreFig = ['saved/dmpc/' newFolderName];
             mkdir(pathStoreFig); % make new folder to store figures created by plot_platooning, in order to make it easier to compare the different results when tuning HP and HU
-            cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'),pathStoreFig)
+%             cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'),pathStoreFig)
 %               figure(10)
 %               subplot(obj.nVeh,1,1)
 %               plot(obj.t,[obj.v_ref(:,1) obj.output(:,1)]);
