@@ -146,7 +146,7 @@ classdef Hlc < cmmn.InterfaceHlc
                         warning('Try to read from domain again...')
                     end
 
-                    ref_others = (dataRead.output - obj.d_ref)'; % reference trajectory for other vehicles
+                    ref_others = (dataRead.output - obj.d_ref)'; % reference trajectory for other vehicles, since weight on velocity is 0, we dont need to consider this part of the output, which is also subtracted by d_ref
                     ymin = repmat(-inf, obj.HP*obj.ny, 1); % update min. output constraint
                     ymax = ref_others+obj.d_min; % update max. output constraint
                     ymax(2:2:end) = inf; 
