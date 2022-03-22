@@ -124,7 +124,7 @@
             for i=2:hp
                 Q = blkdiag(Q, q);
             end
-            Q(end,end)=10; % terminal cost
+%             Q(end,end)=10; % terminal cost
     
             R = r;
             for i=2:hu
