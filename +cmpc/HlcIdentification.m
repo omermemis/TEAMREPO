@@ -148,7 +148,8 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         function on_stop(obj)
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
-            cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'))
+            pathStoreFig = 'saved/cmpc';
+            cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'),pathStoreFig)
 %               figure(1)
 %               subplot(5,1,1)
 %               plot(obj.t, [obj.output(:,1), (obj.s_max+obj.s0)*ones(obj.counter,1)]);
