@@ -50,8 +50,8 @@ classdef Hlc < cmmn.InterfaceHlc
             obj.input = [];
             obj.output = [];
             obj.t = [];
-            obj.HP = 30; % HP = 30 and HU =3 is the best conbination until now (see results under folder saved/dmpc/HP30-HU3)
-            obj.HU = 15;
+            obj.HP = 25; 
+            obj.HU = 12;
             obj.v_min = 0;
             obj.v_max = 1.5;
             obj.d_ref = 0.5;
@@ -77,8 +77,8 @@ classdef Hlc < cmmn.InterfaceHlc
             Q_leader = [0 0;0 1]; % Q-matrix of mpc for leading vehicle
             Q_others = 1; % Q-matrix of mpc for other vehicles
 
-            R_leader = 1*eye(obj.nu); % for input changes du
-            R_others = 1*eye(obj.nu); % for input changes du
+            R_leader = .1*eye(obj.nu); % for input changes du
+            R_others = .1*eye(obj.nu); % for input changes du
             Q_KALMAN = eye(obj.nx); % handle process noise
             R_KALMAN_leader = eye(obj.ny_leader); % handle measurement noise
             R_KALMAN_others = eye(obj.ny_others); % handle measurement noise

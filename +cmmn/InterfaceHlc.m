@@ -8,6 +8,7 @@ classdef InterfaceHlc < handle
         t_start_nanos           % unix timestamp from first MW sample
         t_exp                   % time elapsed since start
         dt_valid_after_nanos    % duration after which messages become valid
+        t_average
     end
     
     methods
@@ -33,6 +34,7 @@ classdef InterfaceHlc < handle
                     obj.on_each_timestep(vehicle_state_list);
                     t_elapsed = toc(t_hlc);
                     fprintf("T_hlc: %5.0f ms | t_exp = %5.1f s\n",t_elapsed*1e3,obj.t_exp);
+                    obj.t_average = [obj.t_average t_elapsed*1e3];
                 catch ME
                     switch ME.identifier
                         case 'CpmLab:measure'
@@ -65,6 +67,9 @@ classdef InterfaceHlc < handle
 
         function on_stop(obj)
             disp('stop')
+            fprintf("average computaion time each step: %5.0f ms\n",mean(obj.t_average));
+            fprintf("minimal computaion time each step: %5.0f ms\n",min(obj.t_average));
+            fprintf("maximal computaion time each step: %5.0f ms\n",max(obj.t_average));
         end
     end
 end

@@ -183,6 +183,11 @@
             assert(size(ref,1)==obj.hp*obj.ny);
             f = 2 * obj.theta_y' * obj.Q * (y_free - ref);
             h = 2 * (obj.theta_y' * obj.Q * obj.theta_y + obj.R);
+            if ~ issymmetric(h)
+                h=(h+h')/2;
+                disp("Your Hessian is not symmetric. Resetting H=(H+H')/2");
+            end
+                
             r0 = (y_free - ref)'*obj.Q*(y_free - ref);
             % u constraints
             Aineq_umax = kron(tril(ones(obj.hu,obj.hu)),eye(obj.nu));

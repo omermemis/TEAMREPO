@@ -32,6 +32,7 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         d_min % min relative distance constraint
         d_max % max relative distance constraint
         vehicle_ids
+        v_ref_fuc % reference function
     end
 
     methods
@@ -49,8 +50,8 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.input = [];
             obj.output = [];
             obj.t = [];
-            obj.HP = 10;
-            obj.HU = 3;
+            obj.HP = 25;
+            obj.HU = 12;
             obj.v_min = 0;
             obj.v_max = 1.5;
             obj.d_ref = 0.5;
@@ -58,15 +59,8 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             obj.a_max = 0.5;
             obj.d_min = 0.3;
             obj.d_max = inf;
-        end
-        
-        function on_first_timestep(obj, vehicle_state_list)
-            on_first_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
-            obj.counter = 0;
-            obj.t_exp = 0.1;
 %             MODEL = cmmn.longitudinal_model(obj.Ts);
-            n = length(vehicle_state_list.active_vehicle_ids); % number of vehicles
-            MODEL = cmpc.central_model(obj.Ts,n);
+            MODEL = cmpc.central_model(obj.Ts,obj.nVeh);
             obj.ny = size(MODEL.C,1);
             obj.nu = size(MODEL.B,2);
             obj.nx = size(MODEL.A,2);
@@ -85,12 +79,20 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             Q = eye(obj.ny); % for system output
 %             Q = diag([1,2,3,4,5]);
 %             Q(5,5) = 0.1; 
-            R = zeros(obj.nu); % for input changes du
+            R = .1*zeros(obj.nu); % for input changes du
             Q_KALMAN = eye(obj.nx); % handle process noise
             R_KALMAN = eye(obj.ny); % handle measurement noise
             obj.mpcObj = cmmn.ModelPredictiveControl(MODEL,obj.HP,obj.HU,UMIN,UMAX,obj.DUMIN,obj.DUMAX,YMIN,YMAX,Q,R,Q_KALMAN,R_KALMAN);
+
+        end
+        
+        function on_first_timestep(obj, vehicle_state_list)
+            on_first_timestep@cmmn.InterfaceHlc(obj,vehicle_state_list);
+            obj.counter = 0;
+            obj.t_exp = 0.1;
             x_init = zeros(obj.nx,1);
             obj.mpcObj.observer.x_k_minus_one = x_init;
+            obj.v_ref_fuc = @(t) 0.5*(0<=t & t<15) + 1.4*(15<=t & t<25) + 0.8*(25<=t & t<35); % reference speed function
 %             y1 = obj.mt.measure_longitudinal(vehicle_state_list);
 %             obj.s0 = y1(1);
         end
@@ -104,15 +106,19 @@ classdef HlcIdentification < cmmn.InterfaceHlc
             ym = obj.mt.measure_central(vehicle_state_list);
             disp(ym)
             
-            ref = zeros(obj.ny,1); % reference for y over the prediction horizon, dimensions=(ny*Hp,1). If dimensions=(ny,1), vector will be repeated Hp times.
+            ref = zeros(obj.ny*obj.HP,1); % reference for y over the prediction horizon, dimensions=(ny*Hp,1). If dimensions=(ny,1), vector will be repeated Hp times.
 %             obj.v_ref(obj.counter,1) = v_ref_;
 %             for i=1:obj.ny*obj.HP
 %                 ref(2*i-1) = s_ref_func(obj.t_exp+i*obj.Ts) + obj.s0;
 %                 ref(2*i) = v_ref_;
 %             end
-            obj.v_ref = 0.5*(0<=obj.t_exp & obj.t_exp<15) + 1.4*(15<=obj.t_exp & obj.t_exp<25) + 0.8*(25<=obj.t_exp & obj.t_exp<35);
-            ref(1:end-1) = obj.d_ref; % [m]
-            ref(end) = obj.v_ref; % [m/s]
+%             obj.v_ref = 0.5*(0<=obj.t_exp & obj.t_exp<15) + 1.4*(15<=obj.t_exp & obj.t_exp<25) + 0.8*(25<=obj.t_exp & obj.t_exp<35);
+            for i=1:obj.HP
+                ref((i-1)*obj.ny+1:i*obj.ny-1)=obj.d_ref;
+                ref(i*obj.ny)=obj.v_ref_fuc(obj.t_exp+(i-1)*obj.Ts);
+            end
+%             ref(1:end-1) = obj.d_ref; % [m]
+%             ref(end) = obj.v_ref; % [m/s]
             weight_slack_var = 1e5;
             % use only one slack variable
 %             [u,y,obj.slack_var(obj.counter,1),obj.delta_u(obj.counter,1:obj.nu),obj.val_objective_fcn(obj.counter,1)] = obj.mpcObj.step(ym,ref,weight_slack_var);
@@ -148,7 +154,9 @@ classdef HlcIdentification < cmmn.InterfaceHlc
         function on_stop(obj)
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
-            pathStoreFig = 'saved/cmpc';
+            newFolderName = ['HP' num2str(obj.HP) '-HU' num2str(obj.HU)];
+            pathStoreFig = ['saved/cmpc/' newFolderName];
+            mkdir(pathStoreFig); % make new folder to store figures created by plot_platooning, in order to make it easier to compare the different results when tuning HP and HU
             cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'),pathStoreFig)
 %               figure(1)
 %               subplot(5,1,1)
@@ -170,16 +178,16 @@ classdef HlcIdentification < cmmn.InterfaceHlc
 %               xlabel('t [s]')
 %               ylabel('acceleration [m/s^2]')
 %               ylim([obj.DUMIN/obj.Ts-0.2; obj.DUMAX/obj.Ts+0.2])
-              subplot(5,1,4)
-              plot(obj.t, obj.slack_var)
-              grid on
-              xlabel('t [s]')
-              ylabel('slack variable')
-              subplot(5,1,5)
-              plot(obj.t, obj.val_objective_fcn)
-              grid on
-              xlabel('t [s]')
-              ylabel('objective function') 
+%               subplot(5,1,4)
+%               plot(obj.t, obj.slack_var)
+%               grid on
+%               xlabel('t [s]')
+%               ylabel('slack variable')
+%               subplot(5,1,5)
+%               plot(obj.t, obj.val_objective_fcn)
+%               grid on
+%               xlabel('t [s]')
+%               ylabel('objective function') 
 
                 
         end
