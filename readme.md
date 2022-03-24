@@ -37,4 +37,8 @@ apply(u_1,u_2,u_3,u_4,u_5) # apply control input to each vehicle
 ```
 The results are shown in Fig. 4 and Fig. 5.
 
+## Discussion
+From the results we can see that the performance of CMPC is higher than DMPC; but the average computation time of CMPC is 95 ms/step, which is 20% higher the average computation time of DMPC with 76 ms/step. This is the characteristic of CMPC: high performance but not scalable with many vehicles. The computation time grows expotentially with the vehicle number. It also has the disadvantage of one point of failure because it has only one controller, namely center controller. Thus, DMPC is a good alternative to be used in the networked and autonomous vehicles, which has the advantage of low computation, though the performance is lower the CMPC. It's most advantage is the scalability; thus, more netowrked vehicles can be controlled. With priority assignment, the prediction inconsistency problem is addressed.
+
 # Reference
+[1] Alrifaee, Bassam. Networked model predictive control for vehicle collision avoidance. Diss. Dissertation, RWTH Aachen University, 2017, 2017.
