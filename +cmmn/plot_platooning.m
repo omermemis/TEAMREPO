@@ -74,7 +74,7 @@ v0ref = ...
 
 % setup figure
 % set linewidth to 1
-FontSize = 20;
+FontSize = 22;
 figure('position',[0 0 1920 997],'color',[1 1 1]);
 title('Input Velocity over Time','Interpreter','LaTex','FontSize',FontSize);
 xlabel('Time $t\ [s]$','Interpreter','LaTex');
@@ -88,8 +88,8 @@ set(0, 'DefaultLineLineWidth', 1);
 leg_a = cell(1,nVeh);
 
 for iVeh = 1:nVeh
-    leg_a{iVeh} = "v_{" + num2str(iVeh) + "}";
     vehicle_id = vehicle_ids(iVeh);
+    leg_a{iVeh} = "v_{" + num2str(vehicle_id) + "}";
     t_i = dataByVehicle(vehicle_id).pathtracking.create_stamp - t_min;
     v_i = dataByVehicle(vehicle_id).pathtracking.speed;
     plot(t_i,v_i);
@@ -138,8 +138,8 @@ set(0, 'DefaultLineLineWidth', 1);
 leg_a = cell(1,nVeh);
 
 for iVeh = 1:nVeh
-    leg_a{iVeh} = "v_{" + num2str(iVeh) + "}";
     vehicle_id = vehicle_ids(iVeh);
+    leg_a{iVeh} = "v_{" + num2str(vehicle_id) + "}";
     % only use those velocities that happened during the path tracking
     t = dataByVehicle(vehicle_id).state.create_stamp;
     v = dataByVehicle(vehicle_id).state.speed;
@@ -197,8 +197,8 @@ set(0, 'DefaultLineLineWidth', 1);
 leg_a = cell(1,nVeh);
 
 for iVeh = 1:nVeh
-    leg_a{iVeh} = "a_{" + num2str(iVeh) + "}";
     vehicle_id = vehicle_ids(iVeh);
+    leg_a{iVeh} = "a_{" + num2str(vehicle_id) + "}";
     t = dataByVehicle(vehicle_id).pathtracking.create_stamp - t_min;
     v = dataByVehicle(vehicle_id).pathtracking.speed;
     dv = v(2:end) - v(1:end-1);
@@ -272,7 +272,7 @@ if nVeh>1
     leg_act = cell(1,nVeh-1);
     
     for iVeh = 1:nVeh-1
-        leg_act{iVeh} = "d_{" + num2str(iVeh)  + num2str(iVeh+1) + "}";
+        leg_act{iVeh} = "d_{" + num2str(vehicle_ids(iVeh))  + num2str(vehicle_ids(iVeh+1)) + "}";
         
         % back vehicle
         s1 = ss{iVeh};
