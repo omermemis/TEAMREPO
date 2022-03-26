@@ -13,8 +13,8 @@ Control the vehicles as a platoon to drive along the predifined path, such that 
 
 <p style="text-align:center;">
 <img src="./assets/forReadme/referenceConstraints.png" width = "600" alt="reference and constraints"/>
-Tab. 1: *d_min* refers to the minimal distance each vehicle should keep, *v_min*, *v_max*, *a_min* and *a_max* are minimal and maximal velocity, minimal and maximal accereration, respectively.
 </p>
+Tab. 1: *d_min* refers to the minimal distance each vehicle should keep, *v_min*, *v_max*, *a_min* and *a_max* are minimal and maximal velocity, minimal and maximal accereration, respectively.
 
 More concrete, in this lab exercise five vehicles will be controlled to form a platoon, with vehicle *IDs = [1,2,3,5,7]*, where the higher the vehicle's ID, the fronter the vehicle will be in the platoon. We notate the vehicle with *ID n* as *vn*, for example, vehicle with *ID 7* will be notated as *v7*. In the platoon, the vehicle *v5* follows *v7*, *v3* follows *v5*, *v2* follows *v3*, *v1* follows *v2*. Thus, vehicle with *ID 7* will be the leading vehicle of the platoon and vehicle with *ID 1* will be the last vehicle.
 
