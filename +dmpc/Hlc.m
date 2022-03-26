@@ -201,7 +201,7 @@ classdef Hlc < cmmn.InterfaceHlc
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
             newFolderName = ['HP' num2str(obj.HP) '-HU' num2str(obj.HU)];
-            pathStoreFig = ['saved/dmpc/' newFolderName];
+            pathStoreFig = ['assets/saved/dmpc/' newFolderName];
             mkdir(pathStoreFig); % make new folder to store figures created by plot_platooning, in order to make it easier to compare the different results when tuning HP and HU
             cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'),pathStoreFig)
 %               figure(10)

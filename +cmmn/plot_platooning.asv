@@ -166,7 +166,6 @@ title(title_str,'Interpreter','LaTex','FontSize',FontSize);
 xlabel('Time $t\ [s]$','Interpreter','LaTex','FontSize',FontSize);
 ylabel('Output Velocity $v\ [m/s]$','Interpreter','LaTex','FontSize',FontSize);
 legend(leg_a{:}, "v_{min}", "v_{max}", "v_{ref}");
-set(gca,'FontSize',FontSize)
 hold off;
 xlim([0, t_max - t_min]);
 % ylim([0 v_max] + 0.1*[-1 1]);
@@ -186,7 +185,6 @@ figure('position',[0 0 1920 997],'color',[1 1 1]);
 title('Input Acceleration over Time','Interpreter','LaTex','FontSize',FontSize);
 xlabel('Time $t\ [s]$','Interpreter','LaTex','FontSize',FontSize);
 ylabel('Input acceleration $a_{in}\ [m/s^2]$','Interpreter','LaTex','FontSize',FontSize);
-set(gca,'FontSize',FontSize)
 hold on;
 
 set(0, 'DefaultLineLineWidth', 1);
@@ -304,7 +302,6 @@ if nVeh>1
     title(title_str,'Interpreter','LaTex','FontSize',FontSize);
     xlabel('Time $t\ [s]$','Interpreter','LaTex','FontSize',FontSize);
     ylabel('Distance $d\ [m]$','Interpreter','LaTex','FontSize',FontSize);
-    set(gca,'FontSize',FontSize)
 
     % save as png
     saveas(gcf,[pathStoreFig '/t-d.png']);
