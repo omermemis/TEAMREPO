@@ -36,6 +36,7 @@ classdef Hlc < cmmn.InterfaceHlc
         writer_vehicleOutput
         currentVehicleID
         targetVehicleID
+        path_save_results
     end
 
     methods
@@ -121,7 +122,8 @@ classdef Hlc < cmmn.InterfaceHlc
 %             n = length(vehicle_state_list.active_vehicle_ids); % number of vehicles 
             y1 = obj.mt.measure_longitudinal(vehicle_state_list);
             obj.s0 = y1(1);
-
+            new_folder_name = ['HP' num2str(obj.HP) '-HU' num2str(obj.HU) '-nVeh' num2str(obj.nVeh) '-Ts' num2str(obj.Ts)];
+            obj.path_save_results = ['assets/saved/dmpc/' new_folder_name];
         end
 
         function on_each_timestep(obj, vehicle_state_list)
@@ -200,10 +202,7 @@ classdef Hlc < cmmn.InterfaceHlc
         function on_stop(obj)
             on_stop@cmmn.InterfaceHlc(obj);
             % TODO plot results, see plot_platooning.m
-            newFolderName = ['HP' num2str(obj.HP) '-HU' num2str(obj.HU)];
-            pathStoreFig = ['assets/saved/dmpc/' newFolderName];
-            mkdir(pathStoreFig); % make new folder to store figures created by plot_platooning, in order to make it easier to compare the different results when tuning HP and HU
-            cmmn.plot_platooning(obj.vehicle_ids,getenv('DDS_DOMAIN'),pathStoreFig)
+            cmmn.plot_platooning(obj.vehicle_ids, getenv('DDS_DOMAIN'), obj.path_save_results)
 %               figure(10)
 %               subplot(obj.nVeh,1,1)
 %               plot(obj.t,[obj.v_ref(:,1) obj.output(:,1)]);

@@ -1,0 +1,3 @@
+average computaion time each step:    13 ms
+minimal computaion time each step:    10 ms
+maximal computaion time each step:    18 ms

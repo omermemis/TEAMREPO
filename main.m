@@ -5,8 +5,8 @@ function main(varargin)
     Ts = 0.2; % [s] sample time
 %     hlc = pmpc.HlcIdentification(Ts,vehicle_ids);
 %     hlc = pmpc.Hlc(Ts,vehicle_ids);
-%     hlc = cmpc.HlcIdentification(Ts,vehicle_ids);
-    hlc = dmpc.Hlc(Ts,vehicle_ids);   
+    hlc = cmpc.HlcIdentification(Ts,vehicle_ids);
+%     hlc = dmpc.Hlc(Ts,vehicle_ids);   
 %     hlc = dmpc.checkPointLab6(Ts,vehicle_ids);  
 
     hlc.start();

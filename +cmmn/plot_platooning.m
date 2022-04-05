@@ -74,7 +74,7 @@ v0ref = ...
 
 % setup figure
 % set linewidth to 1
-FontSize = 22;
+FontSize = 28;
 figure('position',[0 0 1920 997],'color',[1 1 1]);
 title('Input Velocity over Time','Interpreter','LaTex','FontSize',FontSize);
 xlabel('Time $t\ [s]$','Interpreter','LaTex');
