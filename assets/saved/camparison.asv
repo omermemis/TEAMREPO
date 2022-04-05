@@ -28,7 +28,7 @@ title('Comparison of computational times')
 xlabel('number of vehicles','FontSize',FontSize)
 ylabel('computation time [ms]','FontSize',FontSize)
 xlim([1 10])
-legend({'centralized MPC (mean)','centralized MPC (max)','distributed MPC (mean)','distributed MPC (max)','step size of the high-level controller'},'FontSize',FontSize,'location','northwest')
+legend({'centralized MPC (mean)','centralized MPC (max)','distributed MPC (mean)','distributed MPC (max)','step size of the HC'},'FontSize',FontSize,'location','northwest')
 set(gca,'FontSize',FontSize)
 
 
