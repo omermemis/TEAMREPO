@@ -104,8 +104,23 @@ The performances and computation time of CMPC and DMPC are compared in the Tab. 
 <p style="text-align:center;">
 <img src="./assets/forReadme/compare.png" width = "600" alt="t-d"/>
 
-Tab. 3: Comparison of CMPC and DMPC strategies in the sense of performance and computation time.
+Tab. 3: Comparison of CMPC and DMPC strategies in the sense of computation time and performance for five vehicles.
 </p>
+
+In our scenario, only five vehicles are considered. To get a more convincing comparison, we use the CMPC and DMPC to control from one to ten vehicles and plot the computation times and objective values. Fig. 9 (a) shows the maximal and mean computation time of the CMPC (green lines) and the DMPC (blue lines), where the step size of the high-level controller is shown by the horizontal red line (*200 ms*). The computation time of the CMPC grows exponentially with the number of vehicles, while that of the DMPC only increases roughly linear. This proves one of the previously mentioned drawbacks of the CMPC: poor scalability. Fig. 9 (b) compares the objective values of the CMPC and DMPC, which should be minimized in the optimization problem. The smaller the objective value, the lower velocity and distance tracking error and hence the higher the performance. From Fig. 9 (b) we can see that when the vehicle number is lower than 8, the performance of the CMPC is higher than the DMPC; but as the vehicle number grows to 8, the DMPC outperforms the CMPC. We can get the reason from Fig. 9 (a), where the mean computation time of the CMPC is larger than the step size of the high-level controller. This means that the CMPC is not real-time capable for vehicle number larger than 8, or in other words, the command inputs cannot be calculated in time when using CMPC. In such situation, the command inputs can, for example, remain the same as the previous time step, which is not good but better than zero. Even when the vehicle number grows to 6, the maximal computation time exceeds the step size. Therefore, the difference between the objective value of the CMPC and DMPC in Fig. 9 (b) is slowly decreasing after 6 vehicles.
+
+<p style="text-align:center;">
+<img src="./assets/forReadme/comparisonVehicleNumber.png" width = "1000" alt="comparison of computation time and performance for different number of vehicles"/>
+
+Fig. 9: Comparison of CMPC and DMPC strategies in the sense of computation time and performance for different number of vehicles. Note that the objective value for five vehicles is not the same as it shows in Fig. 4 and Fig. 8 because we are using different vehicles (with *IDs = [1,2,3,4,5]* but not *IDs = [1,2,3,5,7]*). See Fig. 10 for the initial position of each vehicle. For *n* vehicles, the vehicles with *IDs = [1,2,...,n]* are used.
+</p>
+
+<p style="text-align:center;">
+<img src="./assets/forReadme/initialPositions.png" width = "400" alt="initial positions"/>
+
+Fig. 10: Initial position of each vehicle.
+</p>
+
 
 # Reference
 [1] Alrifaee, Bassam. Networked model predictive control for vehicle collision avoidance. Diss. Dissertation, RWTH Aachen University, 2017, 2017.
